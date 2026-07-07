@@ -197,11 +197,28 @@ const AGU_AI = {
         });
     },
 
-    // ---- grounding: fetched live from config.grounding.doctype ----
-    async get_grounding(config, match_value, opts) {
+    // ---- grounding: resolved from the current doc (config.grounding.resolve)
+    // OR fetched live from config.grounding.doctype ----
+    async get_grounding(frm, config, match_value, opts) {
         opts = opts || {};
         const cache_key = `${config.id}::${match_value}`;
         if (!opts.refresh && this._groundingCache[cache_key]) return this._groundingCache[cache_key];
+
+        // In-document grounding: derive the text from the current form (e.g. an
+        // agenda child table) instead of fetching an external record. When a
+        // resolve() is supplied it fully replaces the external fetch below.
+        if (typeof config.grounding.resolve === "function") {
+            let result = { text: "", name: null };
+            try {
+                const resolved = config.grounding.resolve(frm, opts) || {};
+                result = { text: this.strip(resolved.text || ""), name: resolved.name || null };
+            } catch (e) {
+                console.warn("grounding.resolve failed:", e.message);
+            }
+            this._groundingCache[cache_key] = result;
+            return result;
+        }
+
         let result = { text: "", name: null };
         try {
             // Only fetch the docname from the list query - a second field can come
@@ -225,6 +242,12 @@ const AGU_AI = {
         return result;
     },
     no_grounding_message(config, match_value, proc) {
+        // Resolve mode (in-document grounding): no external record to open/create.
+        if (typeof config.grounding.resolve === "function") {
+            if (config.grounding.empty_message) return config.grounding.empty_message;
+            const label = config.grounding.label || "grounding source";
+            return `No ${label} available to ground the draft. Add it first, then try again.`;
+        }
         const doctype = config.grounding.doctype;
         return proc.name
             ? `The ${doctype} record ${proc.name} was found for "${match_value}", but its text field ` +
@@ -355,11 +378,13 @@ const AGU_AI = {
             return "error";
         }
         const match_label = config.grounding.match_label ? config.grounding.match_label(frm) : match_value;
-        const proc = await this.get_grounding(config, match_value);
+        const proc = await this.get_grounding(frm, config, match_value);
         if (!proc.text) {
             if (!opts.silent) {
                 frappe.msgprint(this.no_grounding_message(config, match_value, proc));
-                this.open_grounding(frm, config);
+                // The built-in grounding dialog assumes AGU_AI's own rendered UI; when
+                // driven headlessly by an external UI there is nothing to render into.
+                if (!config.headless) this.open_grounding(frm, config);
             }
             return "no-proc";
         }
@@ -554,10 +579,10 @@ const AGU_AI = {
 
         const match_value = config.grounding.match_value(frm);
         if (!match_value) { frappe.msgprint(`This record has no ${config.grounding.field_label || "grounding value"} set.`); return; }
-        const proc = await this.get_grounding(config, match_value);
+        const proc = await this.get_grounding(frm, config, match_value);
         if (!proc.text) {
             frappe.msgprint(this.no_grounding_message(config, match_value, proc));
-            this.open_grounding(frm, config);
+            if (!config.headless) this.open_grounding(frm, config);
             return;
         }
         const key = await this.get_key();
@@ -676,7 +701,7 @@ const AGU_AI = {
         const saved_model = this.get_model(config.id);
         if (!preset.includes(saved_model)) preset.unshift(saved_model);
         const model_options = window._aguAiModels && window._aguAiModels.length ? window._aguAiModels : preset;
-        const proc = await this.get_grounding(config, match_value);
+        const proc = await this.get_grounding(frm, config, match_value);
 
         const d = new frappe.ui.Dialog({
             title: "Grounding & model for " + match_value,
@@ -734,7 +759,7 @@ const AGU_AI = {
             const orig = $btn.text();
             $btn.text("Refreshing...").prop("disabled", true);
             try {
-                const fresh = await self.get_grounding(config, match_value, { refresh: true });
+                const fresh = await self.get_grounding(frm, config, match_value, { refresh: true });
                 d.set_value("procedure", fresh.text || "(none found)");
                 d.set_df_property(
                     "procedure", "label",
@@ -871,7 +896,7 @@ const AGU_AI = {
 
         const rows = frm.doc[config.table] || [];
         const match_value = config.grounding.match_value(frm) || "";
-        const proc = match_value ? await this.get_grounding(config, match_value) : { text: "", name: null };
+        const proc = match_value ? await this.get_grounding(frm, config, match_value) : { text: "", name: null };
         const has_grounding = !!proc.text;
         const noun = config.row_noun || "record";
         const self = this;

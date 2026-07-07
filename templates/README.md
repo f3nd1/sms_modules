@@ -124,6 +124,19 @@ primary way to work with that table. Both scripts (`agu-form-template.js`
 and `agu-ai-draft.js`) must be enabled on the DocType; `id`/`table` in the
 `ai` config are filled in automatically from the section/table if omitted.
 
+## Install — headless (drive from your own custom UI)
+
+When you already have a bespoke editor for a child table and only want a
+per-row **AI Draft** button (not AGU_AI's own card renderer), use the engine
+headlessly: set `headless: true` on the config and call the drafting core
+directly from your button handler — `AGU_AI.draft_row(frm, config, idx)`,
+then `AGU_AI.ask_and_redraft(...)` if it returns `{status:"need_input"}`,
+then re-render with your own function. The engine never touches its own
+renderer on this path. Grounding can be **in-document** via
+`grounding.resolve(frm)` (e.g. the meeting's own Agenda) instead of an
+external DocType fetch. See the full worked example:
+`templates/examples/quality-meeting-minutes.config.js`.
+
 ## Config shape
 
 ```js
@@ -153,7 +166,7 @@ and `agu-ai-draft.js`) must be enabled on the DocType; `id`/`table` in the
         { fieldname: "improvement_action" }
     ],
 
-    grounding: {
+    grounding: {                      // EITHER external-fetch (below) OR in-document (resolve)
         doctype: "Quality Procedure",
         match_field: "custom_criterion_reference",  // field on the grounding doctype
         match_value: (frm) => frm.doc.criterion,       // value to match against it
@@ -161,6 +174,17 @@ and `agu-ai-draft.js`) must be enabled on the DocType; `id`/`table` in the
         text_field: "custom_ppd_text_format",          // authoritative SOP text field
         field_label: "Criterion"                        // optional, for error copy
     },
+    // In-document grounding alternative (see the Quality Meeting minutes example):
+    //   grounding: {
+    //     label: "Agenda", field_label: "Agenda",
+    //     match_value: (frm) => frm.doc.name || "unsaved",
+    //     resolve: (frm) => ({ text: <derived from frm.doc.*>, name: "Agenda (N items)" }),
+    //     empty_message: "…add the source first…"
+    //   }
+    // When grounding.resolve is present it fully replaces the external DocType fetch.
+
+    headless: true,                   // set when driving from your OWN UI (no AGU_AI render):
+                                      // the engine never opens its built-in grounding dialog.
 
     context_gate: {                   // optional; omit to disable the ask-before-draft gate
         target_field: "kpi_target_value",
@@ -186,7 +210,10 @@ and `agu-ai-draft.js`) must be enabled on the DocType; `id`/`table` in the
 ## Mechanics to preserve when adapting
 
 - **Grounding refusal is absolute.** No matching/empty grounding text means it
-  will not draft — single row, per-card, or bulk.
+  will not draft — single row, per-card, or bulk. This holds for both grounding
+  modes: external DocType fetch and in-document `grounding.resolve(frm)`. In
+  `headless: true` mode the refusal shows `grounding.empty_message` instead of
+  opening the built-in grounding dialog.
 - **Deterministic ask-before-draft gate**, not a model judgement call: any row
   with both `context_gate.target_field` and `actual_field` numbers and no
   recorded reason yet (via `shared_note`) is always paused for reviewer input
