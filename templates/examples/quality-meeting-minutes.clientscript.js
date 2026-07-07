@@ -8,6 +8,10 @@
 // formats what you type — it never invents facts, names, figures, owners or
 // deadlines. Nothing is auto-saved — review, then Save.
 //
+// Each Item is seeded (via "Copy Agenda to Minutes") with the agenda title in
+// BOLD. That bold heading is PRESERVED: the AI writes only the discussion body
+// underneath it, never replacing or repeating the title.
+//
 // FULLY STANDALONE: a complete Client Script (starts with frappe.ui.form.on) that
 // carries its own OpenAI logic. It works entirely off the custom_minutes_metadata
 // HTML field wrapper — no reference to the QMU script's variables, no edit to it.
@@ -112,12 +116,47 @@ const MinutesAI = {
     else { try { this.inject(frm); } catch (e) {} }
   },
 
+  // Split the Item into its bold agenda heading (copied from the Agenda) and the
+  // rest. The heading is PRESERVED verbatim; the AI only writes the body below it.
+  split_item_heading(item_html) {
+    try {
+      const div = document.createElement("div");
+      div.innerHTML = String(item_html || "");
+      const bold = div.querySelector("strong, b");
+      if (bold) {
+        const t = (bold.textContent || "").trim();
+        if (t) {
+          return {
+            heading_html: "<p><strong>" + frappe.utils.escape_html(t) + "</strong></p>",
+            heading_text: t
+          };
+        }
+      }
+    } catch (e) {}
+    return { heading_html: "", heading_text: "" };
+  },
+
   // ---------- the draft box ----------
   open_draft_dialog(frm, idx) {
     const row = (frm.doc.ucc_minutes || []).find((r) => String(r.idx) === String(idx));
     if (!row) { frappe.msgprint("Minute row not found."); return; }
 
     const self = this;
+    const heading = this.split_item_heading(row.item);
+
+    // Prefill the discussion box with any body already present (heading removed).
+    const full = this.strip(row.item);
+    let body_existing = full;
+    if (heading.heading_text) {
+      const i = full.indexOf(heading.heading_text);
+      body_existing = i >= 0 ? (full.slice(0, i) + full.slice(i + heading.heading_text.length)).trim() : full;
+    }
+
+    const heading_note = heading.heading_text
+      ? "The bold agenda heading <strong>" + frappe.utils.escape_html(heading.heading_text) +
+        "</strong> is kept. Type the discussion below — the AI writes the body only, underneath it."
+      : "No bold agenda heading detected on this item, so the AI will draft the whole Item.";
+
     const d = new frappe.ui.Dialog({
       title: "AI Draft — Minute #" + row.idx,
       size: "large",
@@ -126,16 +165,15 @@ const MinutesAI = {
           fieldtype: "HTML",
           options:
             "<div style='color:#667085;margin-bottom:8px;font-size:12.5px;line-height:1.5'>" +
-            "Type the raw points below. The AI rewrites them in formal minute style " +
-            "(e.g. <i>“Ms Tan reported…”, “The board discussed…”, “It was agreed that…”</i>). " +
-            "It only formats what you write — it will not add names, figures, dates, owners or deadlines you did not provide." +
+            heading_note + "<br>The AI rewrites your points in formal minute style " +
+            "(<i>“Ms Tan reported…”, “The board discussed…”, “It was agreed that…”</i>) and adds nothing you did not write." +
             "</div>"
         },
         {
-          label: "Item — what was reported / discussed / agreed",
+          label: "Discussion — what was reported / discussed / agreed",
           fieldname: "item_notes",
           fieldtype: "Text",
-          default: self.strip(row.item),
+          default: body_existing,
           description: "Raw points are fine, e.g. \"Jane reported Q2 intake 45; board discussed shortfall; agreed to add 2 fairs\"."
         },
         {
@@ -151,13 +189,13 @@ const MinutesAI = {
         const item_notes = String((values && values.item_notes) || "").trim();
         const action_notes = String((values && values.action_notes) || "").trim();
         if (!item_notes && !action_notes) {
-          frappe.msgprint("Type at least the Item points to draft from.");
+          frappe.msgprint("Type at least the discussion points to draft from.");
           return;
         }
         const $pb = d.get_primary_btn();
         $pb.prop("disabled", true).text("Drafting…");
         try {
-          const ok = await self.do_draft(frm, row, item_notes, action_notes);
+          const ok = await self.do_draft(frm, row, heading, item_notes, action_notes);
           if (ok) {
             d.hide();
             self.refresh_view(frm);
@@ -174,13 +212,13 @@ const MinutesAI = {
     d.show();
   },
 
-  async do_draft(frm, row, item_notes, action_notes) {
+  async do_draft(frm, row, heading, item_notes, action_notes) {
     const key = await this.get_key();
     if (!key) return false;
 
     let out;
     try {
-      out = await this.call_openai(key, this.messages(frm, row, item_notes, action_notes));
+      out = await this.call_openai(key, this.messages(frm, row, heading, item_notes, action_notes));
     } catch (e) {
       if (e.status === 401) {
         this.clear_key();
@@ -191,28 +229,35 @@ const MinutesAI = {
     }
 
     if (!out) return false;
-    if (typeof out.item !== "undefined" && out.item !== null) row.item = String(out.item);
+
+    // Keep the bold heading, append the drafted body underneath it.
+    const body = typeof out.item_body !== "undefined" && out.item_body !== null ? String(out.item_body) : "";
+    if (heading.heading_html || body) {
+      row.item = (heading.heading_html || "") + body;
+    }
     if (typeof out.action !== "undefined" && out.action !== null) row.action = String(out.action);
     frm.dirty();
     return true;
   },
 
   // ---------- the minute-writing skill ----------
-  messages(frm, row, item_notes, action_notes) {
+  messages(frm, row, heading, item_notes, action_notes) {
     const system = [
       "You are a minute-taker for a Quality Meeting at United Ceres College (UCC), a Singapore private education institution. You REWRITE the user's raw points into formal meeting-minute style.",
       "",
       "ABSOLUTE RULE — NO ASSUMPTIONS: use only the facts the user typed. Never add or infer a name, role, figure, date, time, decision, owner or deadline that is not in the input. If something is not stated, leave it out. Do not editorialise, interpret motive, or draw conclusions.",
       "",
-      "Return JSON only: {\"item\":\"<HTML>\",\"action\":\"<plain text>\"}.",
+      "The item already has a bold heading (the agenda title), given as 'topic'. It stays on the form. Do NOT repeat, restate or re-title it. Write only the BODY that goes underneath it.",
       "",
-      "ITEM — house style:",
+      "Return JSON only: {\"item_body\":\"<HTML body, no heading>\",\"action\":\"<plain text>\"}.",
+      "",
+      "ITEM BODY — house style:",
       "- Third person, past tense, factual and neutral.",
       "- Attribute points to the speaker/role WHEN the notes name one: 'Ms Tan reported that...', 'The Chair noted...', 'The board discussed...', 'It was agreed that...', 'It was noted that...', 'It was resolved that...'. If no speaker is named, use an impersonal form ('It was noted that...', 'The meeting reviewed...').",
       "- Use standard minute verbs: reported, presented, informed, raised, discussed, reviewed, noted, clarified, agreed, resolved, recommended, endorsed, approved, deferred.",
       "- Keep figures, dates and times exactly as written; do not invent or round them.",
       "- Concise: 1 to 4 sentences. Use a short <ul><li> list only if there are several distinct points.",
-      "- Output simple HTML: <p>, <ul>, <li>, <strong>. UK British spelling. Never use em dashes.",
+      "- Output simple HTML: <p>, <ul>, <li>, <strong>. Do not include an <h*> or a bold title line. UK British spelling. Never use em dashes.",
       "",
       "ACTION — house style (STRICT, no assumptions):",
       "- If the notes give no concrete follow-up task, output exactly: All to take note.",
@@ -226,6 +271,7 @@ const MinutesAI = {
     ].join("\n");
 
     const payload = {
+      topic: (heading && heading.heading_text) || "",
       item_notes: item_notes || "",
       action_notes: action_notes || "",
       meeting_date: frm.doc.eb_date || "",
