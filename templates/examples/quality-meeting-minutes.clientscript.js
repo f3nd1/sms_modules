@@ -3,14 +3,15 @@
 // DocType: Quality Meeting   Apply To: Form
 //
 // Adds an "✨ AI Draft" button to every row of the Minutes Workspace (card view
-// AND table view). Clicking it drafts that row's Item (HTML) and Action, grounded
-// in this meeting's own Agenda. Nothing is auto-saved — review, then Save.
+// AND table view). Clicking it opens a DRAFT BOX where you type the raw points
+// for the Item and Action; the AI rewrites them into formal minute style. It only
+// formats what you type — it never invents facts, names, figures, owners or
+// deadlines. Nothing is auto-saved — review, then Save.
 //
 // FULLY STANDALONE: a complete Client Script (starts with frappe.ui.form.on) that
-// carries its own OpenAI drafting logic. It works entirely off the
-// `custom_minutes_metadata` HTML field wrapper — it does NOT reference the QMU
-// script's variables and needs NO edit to the QMU script. It watches that field
-// for renders (MutationObserver) and injects the buttons after QMU draws the rows.
+// carries its own OpenAI logic. It works entirely off the custom_minutes_metadata
+// HTML field wrapper — no reference to the QMU script's variables, no edit to it.
+// A MutationObserver re-injects the buttons after every QMU repaint.
 // =============================================================================
 
 frappe.ui.form.on("Quality Meeting", {
@@ -32,8 +33,6 @@ const MinutesAI = {
 
     this.setup_observer(frm);
     this.bind(frm);
-    // QMU renders the minutes ~250ms after refresh; inject once it has settled,
-    // in case the workspace is the active section on load.
     setTimeout(() => { try { this.inject(frm); } catch (e) {} }, 600);
   },
 
@@ -42,9 +41,6 @@ const MinutesAI = {
     return f && f.$wrapper ? f.$wrapper : $();
   },
 
-  // Re-inject the buttons whenever QMU repaints the minutes DOM (view switch,
-  // filter, add row, draft, section change, etc.). Guarded on the DOM node so we
-  // only ever attach one observer to the stable field wrapper.
   setup_observer(frm) {
     const w = this.wrapper(frm);
     if (!w.length || w[0].__minutesai_observed) return;
@@ -67,7 +63,6 @@ const MinutesAI = {
     const w = this.wrapper(frm);
     if (!w.length) return;
 
-    // Card view: prepend into the summary action row.
     w.find(".qmu-card[data-idx]").each(function () {
       const idx = $(this).attr("data-idx");
       const actions = $(this).find(".qmu-card-summary-actions").first();
@@ -76,12 +71,11 @@ const MinutesAI = {
           `<button type="button" class="qmu-card-remove"
                    style="border-color:#8295bd;color:#33406a;background:#eef2fb"
                    data-minutesai-draft="${idx}"
-                   title="Draft this minute's Item and Action from the agenda">✨ AI Draft</button>`
+                   title="Draft this minute's Item and Action from your notes">✨ AI Draft</button>`
         );
       }
     });
 
-    // Table view: prepend into the last (Edit) cell.
     w.find(".qmu-minutes-table tr[data-idx]").each(function () {
       const idx = $(this).attr("data-idx");
       const cell = $(this).find("td").last();
@@ -90,50 +84,27 @@ const MinutesAI = {
           `<button type="button" class="qmu-btn qmu-btn-mini"
                    style="border-color:#8295bd;color:#33406a;margin-bottom:4px"
                    data-minutesai-draft="${idx}"
-                   title="Draft this minute's Item and Action from the agenda">✨ AI</button>`
+                   title="Draft this minute's Item and Action from your notes">✨ AI</button>`
         );
       }
     });
   },
 
-  // ---------- click handler ----------
+  // ---------- click handler → open the draft box ----------
   bind(frm) {
     const w = this.wrapper(frm);
     if (!w.length) return;
 
     w.off("click.minutesai", "[data-minutesai-draft]");
-    w.on("click.minutesai", "[data-minutesai-draft]", async function (e) {
+    w.on("click.minutesai", "[data-minutesai-draft]", function (e) {
       e.preventDefault();
       e.stopPropagation(); // don't toggle the card <summary> or trigger the row dblclick
-
       const idx = $(this).attr("data-minutesai-draft");
-      const $b = $(this);
-      const original = $b.html();
-      $b.text("Drafting…").prop("disabled", true);
-
-      let restore = true;
-      try {
-        const r = await MinutesAI.draft_row(frm, idx);
-        if (r === "ok") {
-          // A re-render rebuilds the rows (and re-injects fresh buttons), so this
-          // button instance is discarded — no need to restore it.
-          restore = false;
-          MinutesAI.refresh_view(frm);
-          frappe.show_alert({ message: "Drafted. Review, then Save.", indicator: "blue" });
-        } else if (r === "skipped") {
-          frappe.show_alert({ message: "Skipped.", indicator: "orange" });
-        }
-      } catch (err) {
-        frappe.msgprint("AI draft failed: " + (err && err.message ? err.message : err));
-      } finally {
-        if (restore) $b.html(original).prop("disabled", false);
-      }
+      MinutesAI.open_draft_dialog(frm, idx);
     });
   },
 
-  // Force QMU to repaint the minutes so the drafted Item (Quill) and Action show,
-  // by re-triggering the currently active view button — QMU's own handler
-  // re-renders from frm.doc. No reference to the QMU object is needed.
+  // Re-trigger the active view button so QMU repaints from frm.doc after a draft.
   refresh_view(frm) {
     const w = this.wrapper(frm);
     const btn = w.find("#qmu-min-card-view.active, #qmu-min-table-view.active").first();
@@ -141,150 +112,124 @@ const MinutesAI = {
     else { try { this.inject(frm); } catch (e) {} }
   },
 
-  // ---------- drafting ----------
-  async draft_row(frm, idx) {
+  // ---------- the draft box ----------
+  open_draft_dialog(frm, idx) {
     const row = (frm.doc.ucc_minutes || []).find((r) => String(r.idx) === String(idx));
-    if (!row) return "error";
+    if (!row) { frappe.msgprint("Minute row not found."); return; }
 
-    const agenda = this.agenda_text(frm);
-    if (!agenda) {
-      frappe.msgprint(
-        "This meeting has no agenda items to ground the draft. Add agenda items " +
-        "(or type the discussion note in the Item field) first, then try again."
-      );
-      return "no-proc";
-    }
+    const self = this;
+    const d = new frappe.ui.Dialog({
+      title: "AI Draft — Minute #" + row.idx,
+      size: "large",
+      fields: [
+        {
+          fieldtype: "HTML",
+          options:
+            "<div style='color:#667085;margin-bottom:8px;font-size:12.5px;line-height:1.5'>" +
+            "Type the raw points below. The AI rewrites them in formal minute style " +
+            "(e.g. <i>“Ms Tan reported…”, “The board discussed…”, “It was agreed that…”</i>). " +
+            "It only formats what you write — it will not add names, figures, dates, owners or deadlines you did not provide." +
+            "</div>"
+        },
+        {
+          label: "Item — what was reported / discussed / agreed",
+          fieldname: "item_notes",
+          fieldtype: "Text",
+          default: self.strip(row.item),
+          description: "Raw points are fine, e.g. \"Jane reported Q2 intake 45; board discussed shortfall; agreed to add 2 fairs\"."
+        },
+        {
+          label: "Action — follow-up (who / by when)",
+          fieldname: "action_notes",
+          fieldtype: "Small Text",
+          default: self.strip(row.action),
+          description: "Leave blank (or with no owner/date) and it becomes \"All to take note.\" Otherwise e.g. \"Admissions to run 2 fairs by 30 Sep\"."
+        }
+      ],
+      primary_action_label: "Draft",
+      async primary_action(values) {
+        const item_notes = String((values && values.item_notes) || "").trim();
+        const action_notes = String((values && values.action_notes) || "").trim();
+        if (!item_notes && !action_notes) {
+          frappe.msgprint("Type at least the Item points to draft from.");
+          return;
+        }
+        const $pb = d.get_primary_btn();
+        $pb.prop("disabled", true).text("Drafting…");
+        try {
+          const ok = await self.do_draft(frm, row, item_notes, action_notes);
+          if (ok) {
+            d.hide();
+            self.refresh_view(frm);
+            frappe.show_alert({ message: "Drafted. Review, then Save.", indicator: "blue" });
+          } else {
+            $pb.prop("disabled", false).text("Draft");
+          }
+        } catch (e) {
+          frappe.msgprint("AI draft failed: " + (e && e.message ? e.message : e));
+          $pb.prop("disabled", false).text("Draft");
+        }
+      }
+    });
+    d.show();
+  },
 
+  async do_draft(frm, row, item_notes, action_notes) {
     const key = await this.get_key();
-    if (!key) return "error";
+    if (!key) return false;
 
     let out;
     try {
-      out = await this.call_openai(key, this.messages(frm, row, agenda, {}));
+      out = await this.call_openai(key, this.messages(frm, row, item_notes, action_notes));
     } catch (e) {
       if (e.status === 401) {
         this.clear_key();
-        frappe.msgprint("OpenAI rejected the key (cleared). Click ✨ AI Draft again to re-enter it.");
-        return "error";
+        frappe.msgprint("OpenAI rejected the key (cleared). Click Draft again to re-enter it.");
+        return false;
       }
       throw e;
     }
 
-    // The model can ask for more detail; collect a note (or draft generic), then redraft.
-    if (out && out.status === "need_input") {
-      const choice = await this.ask_reason(row, out.question);
-      if (choice === null) return "skipped";
-      try {
-        out = await this.call_openai(key, this.messages(frm, row, agenda, choice));
-      } catch (e) {
-        if (e.status === 401) { this.clear_key(); frappe.msgprint("OpenAI rejected the key (cleared)."); return "error"; }
-        throw e;
-      }
-      if (out && out.status === "need_input") {
-        frappe.msgprint("Still not enough detail to draft this item. Add a note to the Item field and try again.");
-        return "skipped";
-      }
-    }
-
-    if (!out || out.status !== "ok") return "error";
-
-    if (out.item) row.item = String(out.item);
-    if (out.action) row.action = String(out.action);
+    if (!out) return false;
+    if (typeof out.item !== "undefined" && out.item !== null) row.item = String(out.item);
+    if (typeof out.action !== "undefined" && out.action !== null) row.action = String(out.action);
     frm.dirty();
-    return "ok";
+    return true;
   },
 
-  // Reason dialog. Resolves to { reason } / { generic:true } / null (skipped).
-  ask_reason(row, question) {
-    const self = this;
-    return new Promise((resolve) => {
-      let settled = false;
-      const label = self.strip(row.item).slice(0, 60) || ("item #" + row.idx);
-      const d = new frappe.ui.Dialog({
-        title: "Before drafting: " + label,
-        fields: [
-          {
-            fieldtype: "HTML", fieldname: "q",
-            options: `<div style="margin-bottom:10px;color:#1a3b6e;">${frappe.utils.escape_html(question || "Add a note for this item.")}</div>`
-          },
-          {
-            label: "Note / reason", fieldname: "answer", fieldtype: "Small Text",
-            description: "A short discussion note. Leave blank and click \"Draft generic\" if there is nothing specific to add."
-          }
-        ],
-        primary_action_label: "Add note and draft",
-        secondary_action_label: "Draft generic",
-        secondary_action() {
-          if (settled) return;
-          settled = true;
-          d.hide();
-          resolve({ generic: true });
-        },
-        primary_action(values) {
-          const answer = String((values && values.answer) || "").trim();
-          if (!answer) { frappe.msgprint('Type a note, or click "Draft generic".'); return; }
-          settled = true;
-          d.hide();
-          resolve({ reason: answer });
-        }
-      });
-      d.$wrapper.on("hidden.bs.modal", () => { if (!settled) { settled = true; resolve(null); } });
-      d.show();
-    });
-  },
-
-  // ---------- grounding: this meeting's agenda ----------
-  agenda_text(frm) {
-    const rows = frm.doc.agenda || [];
-    const skip = new Set([
-      "name", "owner", "creation", "modified", "modified_by", "docstatus",
-      "idx", "parent", "parentfield", "parenttype", "doctype"
-    ]);
-    const self = this;
-    // NOTE: the `agenda` child DocType's real text fieldname is not confirmed, so
-    // this joins every non-empty string field of each row. Once known (e.g.
-    // `description` / `agenda_item`), replace the inner map with a single read.
-    const lines = rows.map((r, i) => {
-      const parts = Object.keys(r)
-        .filter((k) => !skip.has(k) && k.indexOf("_") !== 0)
-        .map((k) => r[k])
-        .filter((v) => typeof v === "string" && self.strip(v))
-        .map((v) => self.strip(v));
-      const text = parts.join(" — ");
-      return text ? (i + 1) + ". " + text : "";
-    }).filter(Boolean);
-
-    return lines.length ? "Agenda items for this meeting:\n" + lines.join("\n") : "";
-  },
-
-  // ---------- prompt ----------
-  messages(frm, row, agenda, choice) {
+  // ---------- the minute-writing skill ----------
+  messages(frm, row, item_notes, action_notes) {
     const system = [
-      "You draft one meeting-minute entry for a Quality Meeting at United Ceres College (UCC), a Singapore private education institution preparing for an EduTrust audit.",
-      "You are given the meeting AGENDA (authoritative basis for what was discussed), the meeting context, and this row's current note (current_item / current_action, which may be blank). current_item tells you which agenda topic THIS entry is about.",
-      "Write two things for this single entry:",
-      "- item: a concise minute of the discussion for this topic, as simple HTML (<p>, optionally a short <ul><li>). 1 to 4 sentences.",
-      "- action: the follow-up action as ONE plain-text sentence (no HTML). If none, write 'No action required.'",
-      "GROUNDING: base the minute on the agenda and current_item. Do NOT invent decisions, figures, names, dates, or outcomes not supported by them.",
-      "If generic_mode is false and there is nothing concrete to write, do NOT invent. Refuse instead.",
-      'REFUSAL: return {"status":"need_input","question":"one plain question asking for the note needed"}.',
-      'OTHERWISE return {"status":"ok","item":"<p>...</p>","action":"..."}.',
-      "STYLE: UK British spelling; never use em dashes; neutral minute-taking voice (past tense). Do not restate the meeting date/location in the item. Terminology: teacher not instructor, Quality Action not corrective action plan, Providers capitalised.",
-      "generic_mode true: write a brief neutral minute of the topic with NO invented specifics, and never refuse.",
+      "You are a minute-taker for a Quality Meeting at United Ceres College (UCC), a Singapore private education institution. You REWRITE the user's raw points into formal meeting-minute style.",
+      "",
+      "ABSOLUTE RULE — NO ASSUMPTIONS: use only the facts the user typed. Never add or infer a name, role, figure, date, time, decision, owner or deadline that is not in the input. If something is not stated, leave it out. Do not editorialise, interpret motive, or draw conclusions.",
+      "",
+      "Return JSON only: {\"item\":\"<HTML>\",\"action\":\"<plain text>\"}.",
+      "",
+      "ITEM — house style:",
+      "- Third person, past tense, factual and neutral.",
+      "- Attribute points to the speaker/role WHEN the notes name one: 'Ms Tan reported that...', 'The Chair noted...', 'The board discussed...', 'It was agreed that...', 'It was noted that...', 'It was resolved that...'. If no speaker is named, use an impersonal form ('It was noted that...', 'The meeting reviewed...').",
+      "- Use standard minute verbs: reported, presented, informed, raised, discussed, reviewed, noted, clarified, agreed, resolved, recommended, endorsed, approved, deferred.",
+      "- Keep figures, dates and times exactly as written; do not invent or round them.",
+      "- Concise: 1 to 4 sentences. Use a short <ul><li> list only if there are several distinct points.",
+      "- Output simple HTML: <p>, <ul>, <li>, <strong>. UK British spelling. Never use em dashes.",
+      "",
+      "ACTION — house style (STRICT, no assumptions):",
+      "- If the notes give no concrete follow-up task, output exactly: All to take note.",
+      "- If a task is given WITH an owner (person, role or department) AND a deadline: '[Owner] to [task] by [deadline].'",
+      "- If a task is given but the owner OR the deadline is missing, include only what is provided and omit the rest — never invent a name, role or date. (owner but no date -> '[Owner] to [task].'; date but no owner -> '[task] by [deadline].')",
+      "- If a task is given with NEITHER an owner nor a deadline, output exactly: All to take note.",
+      "- One sentence. Plain text, no HTML.",
+      "",
+      "meeting_date and meeting_time are context only: use them for temporal phrasing ONLY if the notes refer to a date/time; do not stamp them onto the minute otherwise.",
       "Return JSON only."
     ].join("\n");
 
     const payload = {
-      agenda: agenda,
-      generic_mode: !!(choice && choice.generic),
-      manual_note: choice && choice.reason ? choice.reason : "",
-      department: frm.doc.custom_department || "",
-      series: frm.doc.series || "",
+      item_notes: item_notes || "",
+      action_notes: action_notes || "",
       meeting_date: frm.doc.eb_date || "",
-      location: frm.doc.custom_meeting_location || "",
-      meeting_focus: frm.doc.custom_highlights || "",
-      current_item: this.strip(row.item),
-      current_action: this.strip(row.action)
+      meeting_time: frm.doc.time || ""
     };
 
     return [
