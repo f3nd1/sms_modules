@@ -154,8 +154,10 @@ const MinutesAI = {
 
     const heading_note = heading.heading_text
       ? "The bold agenda heading <strong>" + frappe.utils.escape_html(heading.heading_text) +
-        "</strong> is kept. Type the discussion below — the AI writes the body only, underneath it."
-      : "No bold agenda heading detected on this item, so the AI will draft the whole Item.";
+        "</strong> is kept, and it drives what this minute is about. Add any discussion points below " +
+        "(optional) — the AI writes the body underneath the heading. Substantive items also get a " +
+        "<i>Lesson Learned</i> and <i>Preventive Measure</i>."
+      : "No bold agenda heading detected on this item, so type the discussion points and the AI will draft the whole Item.";
 
     const d = new frappe.ui.Dialog({
       title: "AI Draft — Minute #" + row.idx,
@@ -170,11 +172,11 @@ const MinutesAI = {
             "</div>"
         },
         {
-          label: "Discussion — what was reported / discussed / agreed",
+          label: "Discussion — what was reported / discussed / agreed (optional)",
           fieldname: "item_notes",
           fieldtype: "Text",
           default: body_existing,
-          description: "Raw points are fine, e.g. \"Jane reported Q2 intake 45; board discussed shortfall; agreed to add 2 fairs\"."
+          description: "Optional — the heading alone can drive the minute. Raw points are fine, e.g. \"Jane reported Q2 intake 45; board discussed shortfall; agreed to add 2 fairs\"."
         },
         {
           label: "Action — follow-up (who / by when)",
@@ -188,8 +190,8 @@ const MinutesAI = {
       async primary_action(values) {
         const item_notes = String((values && values.item_notes) || "").trim();
         const action_notes = String((values && values.action_notes) || "").trim();
-        if (!item_notes && !action_notes) {
-          frappe.msgprint("Type at least the discussion points to draft from.");
+        if (!item_notes && !action_notes && !heading.heading_text) {
+          frappe.msgprint("Type the discussion points (or give this item a bold agenda heading) to draft from.");
           return;
         }
         const $pb = d.get_primary_btn();
@@ -243,30 +245,40 @@ const MinutesAI = {
   // ---------- the minute-writing skill ----------
   messages(frm, row, heading, item_notes, action_notes) {
     const system = [
-      "You are a minute-taker for a Quality Meeting at United Ceres College (UCC), a Singapore private education institution. You REWRITE the user's raw points into formal meeting-minute style.",
+      "You are a minute-taker for a Quality Meeting at United Ceres College (UCC), a Singapore private education institution operating under ISO 9001, ISO 27001 and EduTrust. You write the BODY of one minute entry for the agenda item given as 'topic', incorporating the user's item_notes when provided.",
       "",
-      "ABSOLUTE RULE — NO ASSUMPTIONS: use only the facts the user typed. Never add or infer a name, role, figure, date, time, decision, owner or deadline that is not in the input. If something is not stated, leave it out. Do not editorialise, interpret motive, or draw conclusions.",
+      "The item already has a bold heading (the agenda title) = 'topic'. It stays on the form. Do NOT repeat, restate or re-title it. Write only the BODY beneath it.",
       "",
-      "The item already has a bold heading (the agenda title), given as 'topic'. It stays on the form. Do NOT repeat, restate or re-title it. Write only the BODY that goes underneath it.",
+      "USE THE TOPIC to shape an appropriate, professional minute. You MAY write conventional meeting language suited to the topic. You must NOT fabricate SPECIFIC facts that are not in item_notes: no invented personal names, exact figures, monetary amounts, specific dates, named systems, or specific decisions. Generic professional minute prose about the topic is allowed; invented specifics are not.",
       "",
       "Return JSON only: {\"item_body\":\"<HTML body, no heading>\",\"action\":\"<plain text>\"}.",
       "",
+      "PROCEDURAL / CEREMONIAL topics — write standard minute language and DO NOT add Lesson Learned or Preventive Measure:",
+      "- Welcome / Introduction: e.g. 'The meeting commenced with a welcome to all attendees. The purpose of the meeting was to review key operational, compliance, regulatory, HR, system and quality matters requiring management awareness or follow-up.'",
+      "- Apologies / Attendance; Confirmation of Previous Minutes.",
+      "- AOB / Any Other Business: e.g. 'There being no further matters raised, the meeting proceeded to close.' (or minute any items listed in item_notes).",
+      "- Conclusion / Next Meeting / Adjournment: e.g. 'The meeting was adjourned.' Add the next meeting date/time ONLY if provided.",
+      "",
+      "SUBSTANTIVE topics (issues, audits, reviews, incidents, improvements, findings, complaints, risks): write the discussion body, THEN add two labelled paragraphs:",
+      "  <p><strong>Lesson Learned:</strong> ...</p>",
+      "  <p><strong>Preventive Measure:</strong> ...</p>",
+      "Keep these grounded in the topic and item_notes and professional; do not fabricate specific figures, names or dates. If the topic genuinely does not warrant them, omit them.",
+      "",
       "ITEM BODY — house style:",
       "- Third person, past tense, factual and neutral.",
-      "- Attribute points to the speaker/role WHEN the notes name one: 'Ms Tan reported that...', 'The Chair noted...', 'The board discussed...', 'It was agreed that...', 'It was noted that...', 'It was resolved that...'. If no speaker is named, use an impersonal form ('It was noted that...', 'The meeting reviewed...').",
-      "- Use standard minute verbs: reported, presented, informed, raised, discussed, reviewed, noted, clarified, agreed, resolved, recommended, endorsed, approved, deferred.",
-      "- Keep figures, dates and times exactly as written; do not invent or round them.",
-      "- Concise: 1 to 4 sentences. Use a short <ul><li> list only if there are several distinct points.",
-      "- Output simple HTML: <p>, <ul>, <li>, <strong>. Do not include an <h*> or a bold title line. UK British spelling. Never use em dashes.",
+      "- Attribute points to the speaker/role WHEN item_notes names one: 'Ms Tan reported that...', 'The Chair noted...'. If no speaker is named, use an impersonal form: 'It was noted that...', 'The meeting reviewed...'.",
+      "- Standard minute verbs: reported, presented, informed, raised, discussed, reviewed, noted, clarified, agreed, resolved, recommended, endorsed, approved, deferred.",
+      "- Keep any figures, dates and times exactly as written in item_notes.",
+      "- Simple HTML: <p>, <ul>, <li>, <strong>. No <h*> or bold title line. UK British spelling. Never use em dashes.",
       "",
       "ACTION — house style (STRICT, no assumptions):",
-      "- If the notes give no concrete follow-up task, output exactly: All to take note.",
-      "- If a task is given WITH an owner (person, role or department) AND a deadline: '[Owner] to [task] by [deadline].'",
-      "- If a task is given but the owner OR the deadline is missing, include only what is provided and omit the rest — never invent a name, role or date. (owner but no date -> '[Owner] to [task].'; date but no owner -> '[task] by [deadline].')",
-      "- If a task is given with NEITHER an owner nor a deadline, output exactly: All to take note.",
+      "- If there is no concrete follow-up task, output exactly: All to take note.",
+      "- Task WITH an owner (person, role or department) AND a deadline: '[Owner] to [task] by [deadline].'",
+      "- Task with the owner OR the deadline missing: include only what is provided, never invent the rest. (owner but no date -> '[Owner] to [task].'; date but no owner -> '[task] by [deadline].')",
+      "- Task with NEITHER an owner nor a deadline: output exactly: All to take note.",
       "- One sentence. Plain text, no HTML.",
       "",
-      "meeting_date and meeting_time are context only: use them for temporal phrasing ONLY if the notes refer to a date/time; do not stamp them onto the minute otherwise.",
+      "meeting_date and meeting_time are context only: use them for temporal phrasing ONLY if the notes/topic refer to a date/time.",
       "Return JSON only."
     ].join("\n");
 
