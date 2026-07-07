@@ -3,14 +3,19 @@
 // DocType: Quality Meeting   Apply To: Form
 //
 // Adds an "✨ AI Draft" button to every row of the Minutes Workspace (card view
-// AND table view). Clicking it opens a DRAFT BOX where you type the raw points
-// for the Item and Action; the AI rewrites them into formal minute style. It only
-// formats what you type — it never invents facts, names, figures, owners or
-// deadlines. Nothing is auto-saved — review, then Save.
+// AND table view). Clicking it opens a DRAFT BOX with three inputs:
+//   - Discussion : your key points (what was reported / discussed / agreed).
+//   - Action     : follow-up (who / by when), or blank for "All to take note.".
+//   - Background : the agenda-template text, used to guide the minute's structure
+//                  and coverage (not copied verbatim, no facts invented from it).
+// The AI writes a formal minute (a short opening sentence + bullet points), and
+// for substantive items adds Lesson Learned and Preventive Measure paragraphs.
+// It never invents names, figures, dates or decisions you did not provide.
+// Nothing is auto-saved — review, then Save.
 //
 // Each Item is seeded (via "Copy Agenda to Minutes") with the agenda title in
-// BOLD. That bold heading is PRESERVED: the AI writes only the discussion body
-// underneath it, never replacing or repeating the title.
+// BOLD. That bold heading is PRESERVED and drives the topic; the AI writes only
+// the body underneath it and replaces the old template text below the heading.
 //
 // FULLY STANDALONE: a complete Client Script (starts with frappe.ui.form.on) that
 // carries its own OpenAI logic. It works entirely off the custom_minutes_metadata
@@ -153,11 +158,11 @@ const MinutesAI = {
     }
 
     const heading_note = heading.heading_text
-      ? "The bold agenda heading <strong>" + frappe.utils.escape_html(heading.heading_text) +
-        "</strong> is kept, and it drives what this minute is about. Type your key points in " +
-        "<b>Discussion</b> — the AI writes the body underneath the heading. Substantive items also get a " +
-        "<i>Lesson Learned</i> and <i>Preventive Measure</i>."
-      : "No bold agenda heading detected on this item, so type the discussion points and the AI will draft the whole Item.";
+      ? "The bold heading <strong>" + frappe.utils.escape_html(heading.heading_text) +
+        "</strong> stays and sets the topic. Type your key points in <b>Discussion</b>; the AI writes the minute " +
+        "body under the heading, structured around the aspects listed in <b>Background</b>. Substantive items " +
+        "also get a <i>Lesson Learned</i> and <i>Preventive Measure</i>."
+      : "No bold heading on this item — type the discussion points and the AI drafts the whole Item.";
 
     const d = new frappe.ui.Dialog({
       title: "AI Draft — Minute #" + row.idx,
@@ -167,8 +172,8 @@ const MinutesAI = {
           fieldtype: "HTML",
           options:
             "<div style='color:#667085;margin-bottom:8px;font-size:12.5px;line-height:1.5'>" +
-            heading_note + "<br>The AI rewrites your points in formal minute style " +
-            "(<i>“Ms Tan reported…”, “The board discussed…”, “It was agreed that…”</i>) and adds nothing you did not write." +
+            heading_note + "<br>It writes in formal minute style (a short opening sentence plus bullet points) and " +
+            "will not invent names, figures, dates or decisions you did not provide." +
             "</div>"
         },
         {
@@ -181,7 +186,7 @@ const MinutesAI = {
           fieldname: "item_notes",
           fieldtype: "Text",
           default: "",
-          description: "Type the actual points here. Raw points are fine, e.g. \"Jane reported Q2 intake 45; board discussed shortfall; agreed to add 2 fairs\". Ceremonial items (Welcome, AOB) can draft from the heading alone."
+          description: "Your actual points — raw notes are fine, e.g. \"Jane reported Q2 intake 45; agreed to add 2 fairs\". Ceremonial items (Welcome, AOB, adjournment) can draft from the heading alone; substantive items need at least a few points."
         },
         {
           label: "Action — follow-up (who / by when)",
@@ -192,11 +197,11 @@ const MinutesAI = {
         },
         { fieldtype: "Section Break", collapsible: 1, label: "Background / reference (agenda template)" },
         {
-          label: "Background — what this item is about (guidance for the AI only)",
+          label: "Background — what this item should cover (guides the AI's structure)",
           fieldname: "background",
           fieldtype: "Text",
           default: body_existing,
-          description: "The agenda template text. The AI uses this only to understand the scope of the item; it is NOT copied into the minute and is NOT treated as things that were said."
+          description: "The agenda template. The AI uses it to decide which aspects to cover and how to structure the minute — it is not copied word-for-word, and facts you did not provide in Discussion are not invented."
         }
       ],
       primary_action_label: "Draft",
