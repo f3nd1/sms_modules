@@ -154,8 +154,8 @@ const MinutesAI = {
 
     const heading_note = heading.heading_text
       ? "The bold agenda heading <strong>" + frappe.utils.escape_html(heading.heading_text) +
-        "</strong> is kept, and it drives what this minute is about. Add any discussion points below " +
-        "(optional) — the AI writes the body underneath the heading. Substantive items also get a " +
+        "</strong> is kept, and it drives what this minute is about. Type your key points in " +
+        "<b>Discussion</b> — the AI writes the body underneath the heading. Substantive items also get a " +
         "<i>Lesson Learned</i> and <i>Preventive Measure</i>."
       : "No bold agenda heading detected on this item, so type the discussion points and the AI will draft the whole Item.";
 
@@ -172,11 +172,16 @@ const MinutesAI = {
             "</div>"
         },
         {
-          label: "Discussion — what was reported / discussed / agreed (optional)",
+          fieldtype: "HTML",
+          fieldname: "feedback"
+          // inline "needs more input" message area; populated on a need_input result.
+        },
+        {
+          label: "Discussion — your key points (what was reported / discussed / agreed)",
           fieldname: "item_notes",
           fieldtype: "Text",
-          default: body_existing,
-          description: "Optional — the heading alone can drive the minute. Raw points are fine, e.g. \"Jane reported Q2 intake 45; board discussed shortfall; agreed to add 2 fairs\"."
+          default: "",
+          description: "Type the actual points here. Raw points are fine, e.g. \"Jane reported Q2 intake 45; board discussed shortfall; agreed to add 2 fairs\". Ceremonial items (Welcome, AOB) can draft from the heading alone."
         },
         {
           label: "Action — follow-up (who / by when)",
@@ -184,12 +189,21 @@ const MinutesAI = {
           fieldtype: "Small Text",
           default: self.strip(row.action),
           description: "Leave blank (or with no owner/date) and it becomes \"All to take note.\" Otherwise e.g. \"Admissions to run 2 fairs by 30 Sep\"."
+        },
+        { fieldtype: "Section Break", collapsible: 1, label: "Background / reference (agenda template)" },
+        {
+          label: "Background — what this item is about (guidance for the AI only)",
+          fieldname: "background",
+          fieldtype: "Text",
+          default: body_existing,
+          description: "The agenda template text. The AI uses this only to understand the scope of the item; it is NOT copied into the minute and is NOT treated as things that were said."
         }
       ],
       primary_action_label: "Draft",
       async primary_action(values) {
         const item_notes = String((values && values.item_notes) || "").trim();
         const action_notes = String((values && values.action_notes) || "").trim();
+        const background = String((values && values.background) || "").trim();
         if (!item_notes && !action_notes && !heading.heading_text) {
           frappe.msgprint("Type the discussion points (or give this item a bold agenda heading) to draft from.");
           return;
@@ -197,11 +211,21 @@ const MinutesAI = {
         const $pb = d.get_primary_btn();
         $pb.prop("disabled", true).text("Drafting…");
         try {
-          const ok = await self.do_draft(frm, row, heading, item_notes, action_notes);
-          if (ok) {
+          const r = await self.do_draft(frm, row, heading, item_notes, action_notes, background);
+          if (r === "ok") {
             d.hide();
             self.refresh_view(frm);
             frappe.show_alert({ message: "Drafted. Review, then Save.", indicator: "blue" });
+          } else if (r && r.status === "need_input") {
+            // Keep the dialog open and ask for the discussion points.
+            const msg = frappe.utils.escape_html(r.question ||
+              "This item needs a few discussion points before it can be drafted.");
+            d.fields_dict.feedback.$wrapper.html(
+              "<div style='background:#fff8e1;border:1px solid #f4d27a;border-radius:6px;padding:8px 10px;" +
+              "color:#8a6d00;font-size:12.5px;margin-bottom:6px'>⚠ " + msg + "</div>"
+            );
+            $pb.prop("disabled", false).text("Draft");
+            if (d.fields_dict.item_notes && d.fields_dict.item_notes.$input) d.fields_dict.item_notes.$input.focus();
           } else {
             $pb.prop("disabled", false).text("Draft");
           }
@@ -214,13 +238,14 @@ const MinutesAI = {
     d.show();
   },
 
-  async do_draft(frm, row, heading, item_notes, action_notes) {
+  // Returns "ok" | false (error/cancelled) | { status:"need_input", question }.
+  async do_draft(frm, row, heading, item_notes, action_notes, background) {
     const key = await this.get_key();
     if (!key) return false;
 
     let out;
     try {
-      out = await this.call_openai(key, this.messages(frm, row, heading, item_notes, action_notes));
+      out = await this.call_openai(key, this.messages(frm, row, heading, item_notes, action_notes, background));
     } catch (e) {
       if (e.status === 401) {
         this.clear_key();
@@ -232,6 +257,11 @@ const MinutesAI = {
 
     if (!out) return false;
 
+    // The model asks for discussion points (substantive item with no notes) — write nothing.
+    if (out.status === "need_input") {
+      return { status: "need_input", question: out.question };
+    }
+
     // Keep the bold heading, append the drafted body underneath it.
     const body = typeof out.item_body !== "undefined" && out.item_body !== null ? String(out.item_body) : "";
     if (heading.heading_html || body) {
@@ -239,19 +269,27 @@ const MinutesAI = {
     }
     if (typeof out.action !== "undefined" && out.action !== null) row.action = String(out.action);
     frm.dirty();
-    return true;
+    return "ok";
   },
 
   // ---------- the minute-writing skill ----------
-  messages(frm, row, heading, item_notes, action_notes) {
+  messages(frm, row, heading, item_notes, action_notes, background) {
     const system = [
-      "You are a minute-taker for a Quality Meeting at United Ceres College (UCC), a Singapore private education institution operating under ISO 9001, ISO 27001 and EduTrust. You write the BODY of one minute entry for the agenda item given as 'topic', incorporating the user's item_notes when provided.",
+      "You are a minute-taker for a Quality Meeting at United Ceres College (UCC), a Singapore private education institution operating under ISO 9001, ISO 27001 and EduTrust. You write the BODY of one minute entry for the agenda item given as 'topic', from the user's item_notes.",
       "",
       "The item already has a bold heading (the agenda title) = 'topic'. It stays on the form. Do NOT repeat, restate or re-title it. Write only the BODY beneath it.",
       "",
-      "USE THE TOPIC to shape an appropriate, professional minute. You MAY write conventional meeting language suited to the topic. You must NOT fabricate SPECIFIC facts that are not in item_notes: no invented personal names, exact figures, monetary amounts, specific dates, named systems, or specific decisions. Generic professional minute prose about the topic is allowed; invented specifics are not.",
+      "'background' is the agenda-template description of what this item is about / what should be covered. Use it ONLY to understand the item's scope and framing. Do NOT copy its wording into the minute, and do NOT treat its contents as things that were said or done — it is guidance, not fact.",
       "",
-      "Return JSON only: {\"item_body\":\"<HTML body, no heading>\",\"action\":\"<plain text>\"}.",
+      "SOURCE OF FACTS: the minute's actual content comes from item_notes (and the conventional language appropriate to a ceremonial topic). You must NOT fabricate specific facts: no invented personal names, exact figures, monetary amounts, specific dates, named systems, or specific decisions unless they are in item_notes.",
+      "",
+      "IF item_notes IS EMPTY:",
+      "- Ceremonial / procedural topic (see list below): draft conventional minute language from the topic alone.",
+      "- Substantive topic (an actual matter, issue, audit, review, incident, finding, complaint, risk, improvement): do NOT invent content. Return {\"status\":\"need_input\",\"question\":\"<one short line asking the user to add the key discussion points for this item>\"}.",
+      "",
+      "OUTPUT — return JSON only, exactly one of:",
+      "  {\"status\":\"ok\",\"item_body\":\"<HTML body, no heading>\",\"action\":\"<plain text>\"}",
+      "  {\"status\":\"need_input\",\"question\":\"<one short line>\"}",
       "",
       "PROCEDURAL / CEREMONIAL topics — write standard minute language and DO NOT add Lesson Learned or Preventive Measure:",
       "- Welcome / Introduction: e.g. 'The meeting commenced with a welcome to all attendees. The purpose of the meeting was to review key operational, compliance, regulatory, HR, system and quality matters requiring management awareness or follow-up.'",
@@ -286,6 +324,7 @@ const MinutesAI = {
       topic: (heading && heading.heading_text) || "",
       item_notes: item_notes || "",
       action_notes: action_notes || "",
+      background: background || "",
       meeting_date: frm.doc.eb_date || "",
       meeting_time: frm.doc.time || ""
     };
