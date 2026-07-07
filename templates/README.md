@@ -134,8 +134,20 @@ then `AGU_AI.ask_and_redraft(...)` if it returns `{status:"need_input"}`,
 then re-render with your own function. The engine never touches its own
 renderer on this path. Grounding can be **in-document** via
 `grounding.resolve(frm)` (e.g. the meeting's own Agenda) instead of an
-external DocType fetch. See the full worked example:
-`templates/examples/quality-meeting-minutes.config.js`.
+external DocType fetch.
+
+Because Frappe runs each Client Script in its **own isolated scope**, a shared
+`const AGU_AI` in one script is not visible to another — so a headless
+integration must either live in the same script as the engine, or expose a
+global. Two worked examples:
+- `templates/examples/quality-meeting-minutes.clientscript.js` — **recommended,
+  fully self-contained** Client Script (starts with `frappe.ui.form.on`, carries
+  its own drafting engine, hooks the existing QMU minutes renderer to add a
+  per-row "AI Draft" button). Only prerequisite: add `window.QMU = QMU;` to the
+  end of the QMU script.
+- `templates/examples/quality-meeting-minutes.config.js` — the same behaviour
+  expressed as an AGU_AI config, for when the AGU_AI engine already shares scope
+  (e.g. composed inside the AGU form template).
 
 ## Config shape
 
