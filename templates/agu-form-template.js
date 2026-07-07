@@ -697,7 +697,49 @@ const AGU = {
         `);
 
         this.embed_fields(frm, active);
+        this.mount_ai_tables(frm, active);
         this.hide_frappe_connections(frm);
+    },
+
+    // Mounts AGU_AI (templates/agu-ai-draft.js) into the currently displayed
+    // table_group's .agu-ai-slot, when that group has an `ai` config. Only the
+    // active table group of the active section is ever in the DOM, so this
+    // mirrors the same "which group is showing" resolution active_table_view()
+    // uses, then defers to AGU_AI for everything past that point.
+    mount_ai_tables(frm, section) {
+        if (typeof AGU_AI === "undefined") {
+            if ((section.table_groups || []).some(g => g.ai)) {
+                console.warn("AGU: a table_group has an `ai` config but AGU_AI (agu-ai-draft.js) is not loaded.");
+            }
+            return;
+        }
+
+        const target = this.target(frm);
+        const groups = (section.table_groups || []).filter(g => g.table && frm.fields_dict[g.table]);
+        if (!groups.length) return;
+
+        const first_table = groups[0].table;
+        const saved_table = frm.__agu_table && frm.__agu_table[section.key] ? frm.__agu_table[section.key] : null;
+        const saved_table_is_valid = groups.some(g => g.table === saved_table);
+        const active_table = saved_table_is_valid ? saved_table : first_table;
+        const group = groups.find(g => g.table === active_table) || groups[0];
+
+        if (!group || !group.ai) return;
+
+        const slot = target.find(`[data-agu-ai-slot="${group.table}"]`);
+        if (!slot.length) return;
+
+        const config = Object.assign({}, group.ai, {
+            id: group.ai.id || `${section.key}__${group.table}`,
+            table: group.table,
+            on_write: (frm2) => {
+                const grid = frm2.fields_dict[group.table] && frm2.fields_dict[group.table].grid;
+                if (grid) grid.refresh();
+                if (group.ai.on_write) group.ai.on_write(frm2);
+            }
+        });
+
+        AGU_AI.mount(frm, slot, config);
     },
 
     section_view(frm, section) {
@@ -839,10 +881,16 @@ const AGU = {
         frm.__agu_collapsed_tables = frm.__agu_collapsed_tables || {};
 
         if (frm.__agu_collapsed_tables[collapse_key] === undefined) {
-            frm.__agu_collapsed_tables[collapse_key] = !!group.collapsed;
+            // When a table has an AI Draft editor, the raw grid is secondary -
+            // collapsed by default unless the config explicitly says otherwise.
+            frm.__agu_collapsed_tables[collapse_key] = group.collapsed !== undefined ? !!group.collapsed : !!group.ai;
         }
 
         const is_collapsed = frm.__agu_collapsed_tables[collapse_key];
+
+        // mount_ai_tables() fills this slot after the HTML below is inserted into
+        // the DOM (see render()); it targets [data-agu-ai-slot] on this table.
+        const ai_slot = group.ai ? `<div class="agu-ai-slot" data-agu-ai-slot="${group.table}"></div>` : "";
 
         return `
             <div class="agu-table-panel">
@@ -864,6 +912,8 @@ const AGU = {
                         </button>
                     </div>
                 </div>
+
+                ${ai_slot}
 
                 <div class="agu-collapsible-table ${is_collapsed ? "is-collapsed" : ""}">
                     <div class="agu-grid-slot ${rows.length > 0 ? "has-records" : "empty-grid"}"
@@ -1245,6 +1295,7 @@ const AGU = {
             ".agu-table-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:12px 14px;background:linear-gradient(135deg,#f1f5fb 0%,#ffffff 100%);border-bottom:1px solid var(--border-color)}",
             ".agu-table-panel-head strong{display:block;font-size:14px;color:var(--text-color)}",
             ".agu-table-panel-head small{display:block;margin-top:2px;font-size:12px;color:var(--text-muted)}",
+            ".agu-ai-slot:not(:empty){padding:12px 14px;border-bottom:1px solid var(--border-color)}",
             ".agu-table-note{font-size:12px;color:var(--text-muted);text-align:right}",
 
             ".agu-grid-slot{padding:10px 12px}",
