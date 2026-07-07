@@ -8,9 +8,10 @@
 //   - Action     : follow-up (who / by when), or blank for "All to take note.".
 //   - Background : the agenda-template text, used to guide the minute's structure
 //                  and coverage (not copied verbatim, no facts invented from it).
-// The AI writes a formal minute (a short opening sentence + bullet points), and
-// for substantive items adds Lesson Learned and Preventive Measure paragraphs.
-// It never invents names, figures, dates or decisions you did not provide.
+// The AI writes a formal minute (a short opening sentence + non-repeating bullet
+// points), and adds Lesson Learned / Preventive Measure only when an issue or
+// finding warrants it. It never invents names, figures, dates or decisions you
+// did not provide.
 // Nothing is auto-saved — review, then Save.
 //
 // Each Item is seeded (via "Copy Agenda to Minutes") with the agenda title in
@@ -160,8 +161,8 @@ const MinutesAI = {
     const heading_note = heading.heading_text
       ? "The bold heading <strong>" + frappe.utils.escape_html(heading.heading_text) +
         "</strong> stays and sets the topic. Type your key points in <b>Discussion</b>; the AI writes the minute " +
-        "body under the heading, structured around the aspects listed in <b>Background</b>. Substantive items " +
-        "also get a <i>Lesson Learned</i> and <i>Preventive Measure</i>."
+        "body under the heading, structured around the aspects listed in <b>Background</b>. Where an issue or " +
+        "finding warrants it, a <i>Lesson Learned</i> and <i>Preventive Measure</i> are added."
       : "No bold heading on this item — type the discussion points and the AI drafts the whole Item.";
 
     const d = new frappe.ui.Dialog({
@@ -302,19 +303,20 @@ const MinutesAI = {
       "- AOB / Any Other Business: e.g. 'There being no further matters raised, the meeting proceeded to close.' (or minute any items listed in item_notes).",
       "- Conclusion / Next Meeting / Adjournment: e.g. 'The meeting was adjourned.' Add the next meeting date/time ONLY if provided.",
       "",
-      "SUBSTANTIVE topics (issues, audits, reviews, incidents, improvements, findings, complaints, risks): write the discussion body, THEN add two labelled paragraphs:",
-      "  <p><strong>Lesson Learned:</strong> ...</p>",
-      "  <p><strong>Preventive Measure:</strong> ...</p>",
-      "Keep these grounded in the topic and item_notes and professional; do not fabricate specific figures, names or dates. If the topic genuinely does not warrant them, omit them.",
+      "LESSON LEARNED / PREVENTIVE MEASURE — add ONLY WHEN WARRANTED, and only the one(s) that apply:",
+      "- Include them only when the item involves an actual problem, incident, nonconformance, audit finding, complaint, risk, shortfall or failure AND item_notes gives a basis for them.",
+      "- For routine informational, planning, scheduling, status-update, review or ceremonial items, OMIT both.",
+      "- When included, place them AFTER the bullet list as: <p><strong>Lesson Learned:</strong> ...</p> and/or <p><strong>Preventive Measure:</strong> ...</p>. Do not fabricate specifics.",
       "",
       "ITEM BODY — house style:",
-      "- The Item is a rich-text editor. FORMAT AS A MIXTURE of short narrative sentences AND bullet points: open with 1 short <p> introducing the discussion, then a <ul><li>...</li></ul> list of the specific points, figures, or decisions covered. Use bullets whenever there are several distinct points; use prose for the opening line and any closing/decision statement.",
+      "- The Item is a rich-text editor. Format as a mixture: ONE brief opening <p> that frames the topic (context only), then a <ul><li>...</li></ul> list of the specific points, figures or decisions.",
+      "- NO REPETITION: each fact, decision or figure appears EXACTLY ONCE. The opening sentence must not restate what the bullets say, and bullets must not repeat one another. Do not write a summary sentence that duplicates a bullet.",
+      "- If there is only ONE point to record, write a single short <p> and NO bullet list (do not pad it into a sentence plus an identical bullet).",
       "- Third person, past tense, factual and neutral.",
       "- Attribute points to the speaker/role WHEN item_notes names one: 'Ms Tan reported that...', 'The Chair noted...'. If no speaker is named, use an impersonal form: 'It was noted that...', 'The meeting reviewed...'.",
       "- Standard minute verbs: reported, presented, informed, raised, discussed, reviewed, noted, clarified, agreed, resolved, recommended, endorsed, approved, deferred.",
       "- Keep any figures, dates and times exactly as written in item_notes.",
       "- Output HTML for the editor: <p>, <ul>, <li>, <strong>. No <h*> or bold title line. UK British spelling. Never use em dashes.",
-      "- The Lesson Learned and Preventive Measure paragraphs come AFTER the bullet list.",
       "",
       "ACTION — house style (STRICT, no assumptions):",
       "- If there is no concrete follow-up task, output exactly: All to take note.",
