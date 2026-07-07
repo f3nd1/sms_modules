@@ -6,18 +6,11 @@
 // AND table view). Clicking it drafts that row's Item (HTML) and Action, grounded
 // in this meeting's own Agenda. Nothing is auto-saved — review, then Save.
 //
-// SELF-CONTAINED: this is a complete Client Script (starts with
-// frappe.ui.form.on). It carries its own OpenAI drafting logic, so it does NOT
-// depend on any other Client Script's variables (Frappe runs each Client Script
-// in its own scope, so a `const` in one is not visible to another).
-//
-// ONE PREREQUISITE — expose the QMU controller so this script can hook the
-// minutes renderer. At the very END of your "Quality Meeting UI" (QMU) Client
-// Script, add this single line:
-//
-//     window.QMU = QMU;
-//
-// That is the only change to the QMU script.
+// FULLY STANDALONE: a complete Client Script (starts with frappe.ui.form.on) that
+// carries its own OpenAI drafting logic. It works entirely off the
+// `custom_minutes_metadata` HTML field wrapper — it does NOT reference the QMU
+// script's variables and needs NO edit to the QMU script. It watches that field
+// for renders (MutationObserver) and injects the buttons after QMU draws the rows.
 // =============================================================================
 
 frappe.ui.form.on("Quality Meeting", {
@@ -34,34 +27,39 @@ const MinutesAI = {
   // ---------- lifecycle ----------
   init(frm) {
     if (!frm || frm.doctype !== "Quality Meeting") return;
+    const w = this.wrapper(frm);
+    if (!w.length) return;
 
-    if (typeof window.QMU === "undefined") {
-      console.warn(
-        "[MinutesAI] window.QMU not found. Add `window.QMU = QMU;` at the very end of the Quality Meeting UI client script."
-      );
-      return;
-    }
-
-    // Patch QMU.render_minutes ONCE so the AI buttons are re-injected after every
-    // render (view switch, filter, add row, draft, etc.).
-    if (!window.QMU.__minutesai_patched) {
-      window.QMU.__minutesai_patched = true;
-      const original_render = window.QMU.render_minutes;
-      window.QMU.render_minutes = function (f) {
-        original_render.call(window.QMU, f);
-        try { MinutesAI.inject(f); } catch (e) { console.warn("[MinutesAI] inject failed:", e); }
-      };
-    }
-
+    this.setup_observer(frm);
     this.bind(frm);
-    // The workspace may already be on screen for this refresh; inject after QMU's
-    // own ~250ms init settle.
+    // QMU renders the minutes ~250ms after refresh; inject once it has settled,
+    // in case the workspace is the active section on load.
     setTimeout(() => { try { this.inject(frm); } catch (e) {} }, 600);
   },
 
   wrapper(frm) {
     const f = frm.fields_dict.custom_minutes_metadata;
     return f && f.$wrapper ? f.$wrapper : $();
+  },
+
+  // Re-inject the buttons whenever QMU repaints the minutes DOM (view switch,
+  // filter, add row, draft, section change, etc.). Guarded on the DOM node so we
+  // only ever attach one observer to the stable field wrapper.
+  setup_observer(frm) {
+    const w = this.wrapper(frm);
+    if (!w.length || w[0].__minutesai_observed) return;
+    w[0].__minutesai_observed = true;
+
+    const self = this;
+    const obs = new MutationObserver(() => {
+      if (self.__inject_scheduled) return;
+      self.__inject_scheduled = true;
+      setTimeout(() => {
+        self.__inject_scheduled = false;
+        try { self.inject(frm); } catch (e) {}
+      }, 60);
+    });
+    obs.observe(w[0], { childList: true, subtree: true });
   },
 
   // ---------- button injection ----------
@@ -117,10 +115,10 @@ const MinutesAI = {
       try {
         const r = await MinutesAI.draft_row(frm, idx);
         if (r === "ok") {
-          // render_minutes rebuilds the rows (and re-injects fresh buttons), so the
-          // current button is discarded — no need to restore it.
+          // A re-render rebuilds the rows (and re-injects fresh buttons), so this
+          // button instance is discarded — no need to restore it.
           restore = false;
-          if (window.QMU && window.QMU.render_minutes) window.QMU.render_minutes(frm);
+          MinutesAI.refresh_view(frm);
           frappe.show_alert({ message: "Drafted. Review, then Save.", indicator: "blue" });
         } else if (r === "skipped") {
           frappe.show_alert({ message: "Skipped.", indicator: "orange" });
@@ -131,6 +129,16 @@ const MinutesAI = {
         if (restore) $b.html(original).prop("disabled", false);
       }
     });
+  },
+
+  // Force QMU to repaint the minutes so the drafted Item (Quill) and Action show,
+  // by re-triggering the currently active view button — QMU's own handler
+  // re-renders from frm.doc. No reference to the QMU object is needed.
+  refresh_view(frm) {
+    const w = this.wrapper(frm);
+    const btn = w.find("#qmu-min-card-view.active, #qmu-min-table-view.active").first();
+    if (btn.length) btn.trigger("click");
+    else { try { this.inject(frm); } catch (e) {} }
   },
 
   // ---------- drafting ----------
@@ -162,7 +170,7 @@ const MinutesAI = {
       throw e;
     }
 
-    // The model can ask for more detail; collect a reason (or draft generic), then redraft.
+    // The model can ask for more detail; collect a note (or draft generic), then redraft.
     if (out && out.status === "need_input") {
       const choice = await this.ask_reason(row, out.question);
       if (choice === null) return "skipped";

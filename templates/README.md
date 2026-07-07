@@ -142,9 +142,10 @@ integration must either live in the same script as the engine, or expose a
 global. Two worked examples:
 - `templates/examples/quality-meeting-minutes.clientscript.js` — **recommended,
   fully self-contained** Client Script (starts with `frappe.ui.form.on`, carries
-  its own drafting engine, hooks the existing QMU minutes renderer to add a
-  per-row "AI Draft" button). Only prerequisite: add `window.QMU = QMU;` to the
-  end of the QMU script.
+  its own drafting engine). It works entirely off the `custom_minutes_metadata`
+  field wrapper: a MutationObserver re-injects the per-row "AI Draft" button after
+  every QMU repaint, and a successful draft re-triggers the active view button to
+  repaint. **No edit to the QMU script is required.**
 - `templates/examples/quality-meeting-minutes.config.js` — the same behaviour
   expressed as an AGU_AI config, for when the AGU_AI engine already shares scope
   (e.g. composed inside the AGU form template).
