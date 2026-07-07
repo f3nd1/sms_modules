@@ -173,8 +173,11 @@ const MinutesAI = {
           fieldtype: "HTML",
           options:
             "<div style='color:#667085;margin-bottom:8px;font-size:12.5px;line-height:1.5'>" +
-            heading_note + "<br>It writes in formal minute style (a short opening sentence plus bullet points) and " +
+            heading_note + "<br>It writes concise, formal minutes (bullet points, no filler preamble) and " +
             "will not invent names, figures, dates or decisions you did not provide." +
+            "<div style='margin-top:6px;color:#8a8f9c'>Model: <b class='minutesai-model-label'>" +
+            frappe.utils.escape_html(self.get_model()) +
+            "</b> · <a href='#' data-minutesai-model style='font-size:12px'>change / fetch</a></div>" +
             "</div>"
         },
         {
@@ -242,6 +245,88 @@ const MinutesAI = {
       }
     });
     d.show();
+
+    // "change / fetch" model link in the intro.
+    d.$wrapper.off("click.minutesaimodel").on("click.minutesaimodel", "[data-minutesai-model]", function (e) {
+      e.preventDefault();
+      self.open_model_settings(function (new_model) {
+        d.$wrapper.find(".minutesai-model-label").text(new_model);
+      });
+    });
+  },
+
+  // ---------- model picker ----------
+  open_model_settings(on_saved) {
+    const self = this;
+    const current = this.get_model();
+    const preset = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "o4-mini"];
+    if (!preset.includes(current)) preset.unshift(current);
+    const options = (window._minutesAiModels && window._minutesAiModels.length) ? window._minutesAiModels : preset;
+
+    const dd = new frappe.ui.Dialog({
+      title: "AI model",
+      fields: [
+        { label: "Model", fieldname: "model", fieldtype: "Select", options: options.join("\n"), default: current },
+        { label: "Fetch available models", fieldname: "fetch", fieldtype: "Button" },
+        {
+          fieldtype: "HTML", fieldname: "hint",
+          options: "<div style='color:#8a8f9c;font-size:12px'>Fetch lists the models your API key can use. " +
+            "gpt-4o-mini is a good, low-cost default; larger models write better minutes but cost more.</div>"
+        }
+      ],
+      primary_action_label: "Save",
+      primary_action(values) {
+        const model = values.model || self.DEFAULT_MODEL;
+        localStorage.setItem(self.MODEL_LS, model);
+        dd.hide();
+        frappe.show_alert({ message: "Model set to " + model, indicator: "green" });
+        if (on_saved) on_saved(model);
+      }
+    });
+
+    dd.fields_dict.fetch.$input.on("click", async () => {
+      const key = await self.get_key();
+      if (!key) return;
+      const $btn = dd.fields_dict.fetch.$input;
+      const orig = $btn.text();
+      $btn.text("Fetching…").prop("disabled", true);
+      try {
+        const list = await self.fetch_models(key);
+        if (!list.length) throw new Error("No chat models returned.");
+        window._minutesAiModels = list;
+        dd.set_df_property("model", "options", list.join("\n"));
+        const cur = dd.get_value("model");
+        if (!list.includes(cur)) dd.set_value("model", list.find((m) => /^gpt-4o-mini/.test(m)) || list[0]);
+        frappe.show_alert({ message: "Loaded " + list.length + " models.", indicator: "green" });
+      } catch (e) {
+        if (e.status === 401) { self.clear_key(); frappe.msgprint("OpenAI rejected the key (cleared). Try again."); }
+        else frappe.msgprint("Could not fetch models: " + (e && e.message ? e.message : e));
+      } finally {
+        $btn.text(orig).prop("disabled", false);
+      }
+    });
+
+    dd.show();
+  },
+
+  async fetch_models(key) {
+    const res = await fetch("https://api.openai.com/v1/models", {
+      headers: { Authorization: "Bearer " + this.clean_key(key) }
+    });
+    if (!res.ok) {
+      if (res.status === 401) this.clear_key();
+      let detail = "";
+      try { const j = await res.json(); detail = j.error && j.error.message ? j.error.message : ""; } catch (e) {}
+      const err = new Error("OpenAI " + res.status + (detail ? ": " + detail : ""));
+      err.status = res.status;
+      throw err;
+    }
+    const data = await res.json();
+    return (data.data || [])
+      .map((m) => m.id)
+      .filter((id) => (/^gpt-/.test(id) || /^o[0-9]/.test(id)) &&
+        !/audio|realtime|search|transcribe|tts|image|instruct|embedding|moderation/.test(id))
+      .sort();
   },
 
   // Returns "ok" | false (error/cancelled) | { status:"need_input", question }.
@@ -309,9 +394,11 @@ const MinutesAI = {
       "- When included, place them AFTER the bullet list as: <p><strong>Lesson Learned:</strong> ...</p> and/or <p><strong>Preventive Measure:</strong> ...</p>. Do not fabricate specifics.",
       "",
       "ITEM BODY — house style:",
-      "- The Item is a rich-text editor. Format as a mixture: ONE brief opening <p> that frames the topic (context only), then a <ul><li>...</li></ul> list of the specific points, figures or decisions.",
-      "- NO REPETITION: each fact, decision or figure appears EXACTLY ONCE. The opening sentence must not restate what the bullets say, and bullets must not repeat one another. Do not write a summary sentence that duplicates a bullet.",
-      "- If there is only ONE point to record, write a single short <p> and NO bullet list (do not pad it into a sentence plus an identical bullet).",
+      "- CONCISE: use the shortest accurate wording. This is a minute, so the reader already knows it is the meeting. Lead straight with the substance.",
+      "- BANNED OPENERS: never start with 'The meeting addressed...', 'The meeting discussed...', 'The meeting reviewed...', 'The meeting addressed the importance of...', or any sentence that merely names the topic or restates the heading. Cut such preambles entirely.",
+      "- The Item is a rich-text editor. Prefer a <ul><li>...</li></ul> list of the specific points, figures or decisions. Add a lead-in <p> ONLY when it carries information that is not already in the bullets; otherwise start straight with the list.",
+      "- NO REPETITION: each fact, decision or figure appears EXACTLY ONCE. No lead-in sentence that duplicates a bullet; no two bullets saying the same thing.",
+      "- If there is only ONE point to record, write a single short <p> and NO bullet list.",
       "- Third person, past tense, factual and neutral.",
       "- Attribute points to the speaker/role WHEN item_notes names one: 'Ms Tan reported that...', 'The Chair noted...'. If no speaker is named, use an impersonal form: 'It was noted that...', 'The meeting reviewed...'.",
       "- Standard minute verbs: reported, presented, informed, raised, discussed, reviewed, noted, clarified, agreed, resolved, recommended, endorsed, approved, deferred.",
@@ -345,8 +432,11 @@ const MinutesAI = {
   },
 
   // ---------- OpenAI ----------
+  get_model() {
+    return localStorage.getItem(this.MODEL_LS) || this.DEFAULT_MODEL;
+  },
   async call_openai(key, messages) {
-    const model = localStorage.getItem(this.MODEL_LS) || this.DEFAULT_MODEL;
+    const model = this.get_model();
     const body = { model: model, response_format: { type: "json_object" }, messages: messages };
     if (/^(gpt-4o|gpt-4-|gpt-4\.1|gpt-3\.5)/.test(model)) {
       body.temperature = 0.2;
