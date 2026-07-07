@@ -3,11 +3,13 @@
 // DocType: Quality Meeting   Apply To: Form
 //
 // Adds an "✨ AI Draft" button to every row of the Minutes Workspace (card view
-// AND table view). Clicking it opens a DRAFT BOX with three inputs:
+// AND table view). Clicking it opens a DRAFT BOX with:
 //   - Discussion : your key points (what was reported / discussed / agreed).
 //   - Action     : follow-up (who / by when), or blank for "All to take note.".
 //   - Background : the agenda-template text, used to guide the minute's structure
 //                  and coverage (not copied verbatim, no facts invented from it).
+//   - AI Model   : always-visible Select + "Fetch available models" button (the
+//                  chosen model is saved and reused as the default next time).
 // The AI writes a formal minute (a short opening sentence + non-repeating bullet
 // points), and adds Lesson Learned / Preventive Measure only when an issue or
 // finding warrants it. It never invents names, figures, dates or decisions you
@@ -165,6 +167,11 @@ const MinutesAI = {
         "finding warrants it, a <i>Lesson Learned</i> and <i>Preventive Measure</i> are added."
       : "No bold heading on this item — type the discussion points and the AI drafts the whole Item.";
 
+    const current_model = this.get_model();
+    const preset = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "o4-mini"];
+    if (!preset.includes(current_model)) preset.unshift(current_model);
+    const model_options = (window._minutesAiModels && window._minutesAiModels.length) ? window._minutesAiModels : preset;
+
     const d = new frappe.ui.Dialog({
       title: "AI Draft — Minute #" + row.idx,
       size: "large",
@@ -175,9 +182,6 @@ const MinutesAI = {
             "<div style='color:#667085;margin-bottom:8px;font-size:12.5px;line-height:1.5'>" +
             heading_note + "<br>It writes concise, formal minutes (bullet points, no filler preamble) and " +
             "will not invent names, figures, dates or decisions you did not provide." +
-            "<div style='margin-top:6px;color:#8a8f9c'>Model: <b class='minutesai-model-label'>" +
-            frappe.utils.escape_html(self.get_model()) +
-            "</b> · <a href='#' data-minutesai-model style='font-size:12px'>change / fetch</a></div>" +
             "</div>"
         },
         {
@@ -206,7 +210,15 @@ const MinutesAI = {
           fieldtype: "Text",
           default: body_existing,
           description: "The agenda template. The AI uses it to decide which aspects to cover and how to structure the minute — it is not copied word-for-word, and facts you did not provide in Discussion are not invented."
-        }
+        },
+        { fieldtype: "Section Break", label: "AI Model" },
+        {
+          label: "Model", fieldname: "model", fieldtype: "Select",
+          options: model_options.join("\n"), default: current_model,
+          description: "gpt-4o-mini is a good, low-cost default. Larger models write better minutes but cost more."
+        },
+        { fieldtype: "Column Break" },
+        { label: "Fetch available models", fieldname: "fetch_models_btn", fieldtype: "Button" }
       ],
       primary_action_label: "Draft",
       async primary_action(values) {
@@ -217,6 +229,8 @@ const MinutesAI = {
           frappe.msgprint("Type the discussion points (or give this item a bold agenda heading) to draft from.");
           return;
         }
+        const chosen_model = values.model || self.DEFAULT_MODEL;
+        localStorage.setItem(self.MODEL_LS, chosen_model);
         const $pb = d.get_primary_btn();
         $pb.prop("disabled", true).text("Drafting…");
         try {
@@ -246,57 +260,20 @@ const MinutesAI = {
     });
     d.show();
 
-    // "change / fetch" model link in the intro.
-    d.$wrapper.off("click.minutesaimodel").on("click.minutesaimodel", "[data-minutesai-model]", function (e) {
-      e.preventDefault();
-      self.open_model_settings(function (new_model) {
-        d.$wrapper.find(".minutesai-model-label").text(new_model);
-      });
-    });
-  },
-
-  // ---------- model picker ----------
-  open_model_settings(on_saved) {
-    const self = this;
-    const current = this.get_model();
-    const preset = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "o4-mini"];
-    if (!preset.includes(current)) preset.unshift(current);
-    const options = (window._minutesAiModels && window._minutesAiModels.length) ? window._minutesAiModels : preset;
-
-    const dd = new frappe.ui.Dialog({
-      title: "AI model",
-      fields: [
-        { label: "Model", fieldname: "model", fieldtype: "Select", options: options.join("\n"), default: current },
-        { label: "Fetch available models", fieldname: "fetch", fieldtype: "Button" },
-        {
-          fieldtype: "HTML", fieldname: "hint",
-          options: "<div style='color:#8a8f9c;font-size:12px'>Fetch lists the models your API key can use. " +
-            "gpt-4o-mini is a good, low-cost default; larger models write better minutes but cost more.</div>"
-        }
-      ],
-      primary_action_label: "Save",
-      primary_action(values) {
-        const model = values.model || self.DEFAULT_MODEL;
-        localStorage.setItem(self.MODEL_LS, model);
-        dd.hide();
-        frappe.show_alert({ message: "Model set to " + model, indicator: "green" });
-        if (on_saved) on_saved(model);
-      }
-    });
-
-    dd.fields_dict.fetch.$input.on("click", async () => {
+    // Fetch available models directly into this dialog's Model select.
+    d.fields_dict.fetch_models_btn.$input.on("click", async () => {
       const key = await self.get_key();
       if (!key) return;
-      const $btn = dd.fields_dict.fetch.$input;
+      const $btn = d.fields_dict.fetch_models_btn.$input;
       const orig = $btn.text();
       $btn.text("Fetching…").prop("disabled", true);
       try {
         const list = await self.fetch_models(key);
         if (!list.length) throw new Error("No chat models returned.");
         window._minutesAiModels = list;
-        dd.set_df_property("model", "options", list.join("\n"));
-        const cur = dd.get_value("model");
-        if (!list.includes(cur)) dd.set_value("model", list.find((m) => /^gpt-4o-mini/.test(m)) || list[0]);
+        d.set_df_property("model", "options", list.join("\n"));
+        const cur = d.get_value("model");
+        if (!list.includes(cur)) d.set_value("model", list.find((m) => /^gpt-4o-mini/.test(m)) || list[0]);
         frappe.show_alert({ message: "Loaded " + list.length + " models.", indicator: "green" });
       } catch (e) {
         if (e.status === 401) { self.clear_key(); frappe.msgprint("OpenAI rejected the key (cleared). Try again."); }
@@ -305,10 +282,9 @@ const MinutesAI = {
         $btn.text(orig).prop("disabled", false);
       }
     });
-
-    dd.show();
   },
 
+  // ---------- model listing (used by the inline Model field in open_draft_dialog) ----------
   async fetch_models(key) {
     const res = await fetch("https://api.openai.com/v1/models", {
       headers: { Authorization: "Bearer " + this.clean_key(key) }
