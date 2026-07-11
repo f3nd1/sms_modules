@@ -1250,6 +1250,30 @@ const AEA = {
 .mc-raw{display:none;margin-top:12px;}
 .mc-json-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;text-transform:uppercase;color:#4a4a42;margin-top:10px;line-height:1.5;}
 .mc-json{font-family:'Courier New',Courier,monospace;font-size:11.5px;color:#d8f0c0;background:#2b2b26;border:3px solid;border-color:#000 #4a4a42 #4a4a42 #000;padding:10px;max-height:280px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 12px;}
+/* ---- Shared verdict / comparison table (base styling; used verbatim in BOTH view modes) ---- */
+.aea-rec{display:inline-block;font-weight:700;font-size:14px;color:#fff;padding:8px 14px;margin-bottom:12px;border:2px solid rgba(0,0,0,.25);}
+.aea-cmp{width:100%;border-collapse:collapse;font-size:13px;margin:2px 0 4px;}
+.aea-cmp th{text-align:left;background:#eef1e8;padding:8px 10px;border:1px solid #cfcfc4;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#4a4a42;}
+.aea-cmp td{padding:8px 10px;border:1px solid #d8d8cc;vertical-align:top;color:#333;line-height:1.4;}
+.aea-cmp .aea-crit-name{font-weight:700;white-space:nowrap;}
+.aea-badge{display:inline-block;font-weight:700;font-size:11px;padding:4px 9px;border:1px solid rgba(0,0,0,.2);white-space:nowrap;}
+.aea-badge--ok{background:#e3f2df;color:#2e6b1f;}
+.aea-badge--notok{background:#fde3e0;color:#9e2b25;}
+.aea-badge--review{background:#fdf3d9;color:#8a6a17;}
+.aea-flags{margin:12px 0 0;padding-left:18px;font-size:12.5px;color:#555;line-height:1.6;}
+.aea-alt{margin-top:12px;background:#eef2fb;border:1px solid #c3cbe0;padding:9px 11px;}
+.aea-alt-h{font-size:11px;text-transform:uppercase;font-weight:700;color:#33406a;}
+.aea-alt-v{font-size:14px;color:#1a3b6e;margin-top:3px;}
+/* ---- Minecraft-mode overrides (pixel flavor) applied only inside .mc-root ---- */
+.mc-root .aea-rec{font-family:'Press Start 2P','Courier New',monospace;font-size:12px;border:3px solid rgba(0,0,0,.35);box-shadow:2px 2px 0 rgba(0,0,0,.3);padding:11px 15px;text-transform:uppercase;line-height:1.5;}
+.mc-root .aea-cmp{font-family:'Courier New',Courier,monospace;}
+.mc-root .aea-cmp th{background:var(--dirt);color:#f6f4e2;border:3px solid var(--dirt-d);font-family:'Press Start 2P','Courier New',monospace;font-size:8px;line-height:1.5;}
+.mc-root .aea-cmp td{background:var(--paper);border:3px solid;border-color:#ebebe3 #5a5a52 #5a5a52 #ebebe3;}
+.mc-root .aea-badge{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;border:2px solid rgba(0,0,0,.35);padding:6px 8px;line-height:1.5;}
+.mc-root .aea-flags{color:#4a4a42;}
+.mc-root .aea-alt{background:var(--parch);border:3px solid #c9bd9c;}
+.mc-root .aea-alt-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;color:#6b5a3a;}
+.aea-plain{font-family:inherit;}
 `,
 
   inject_theme() {
@@ -1284,6 +1308,7 @@ const AEA = {
           <button type="button" class="mc-btn" data-aea-action="run">Run Assessment</button>
           <button type="button" class="mc-btn mc-btn--stone" data-aea-action="ai">AI Settings</button>
           <button type="button" class="mc-btn mc-btn--stone" data-aea-action="reextract">Re-extract from PDF</button>
+          <button type="button" class="mc-btn mc-btn--stone" data-aea-action="viewdefault">Switch to ERPNext Default View</button>
         </div>
         <div class="mc-verdict" id="aea-verdict"></div>
         <div class="mc-panel">
@@ -1333,6 +1358,9 @@ const AEA = {
       }
       return; // fall back to native layout, do not break the form
     }
+    // Minecraft mode: make sure the custom field is visible (it may have been hidden
+    // by a previous switch to Default view).
+    if (field.df.hidden) frm.set_df_property("custom_form_render", "hidden", 0);
     // Re-render the shell each refresh (Frappe owns HTML-field content via df.options),
     // then re-attach the native controls and re-sync — this survives Frappe's own refreshes.
     field.df.options = this.build_shell_html();
@@ -1354,13 +1382,78 @@ const AEA = {
     });
   },
 
+  // ---------- view-mode toggle (Minecraft <-> ERPNext Default) ----------
+  VIEW_LS: "aea_form_view",
+
+  get_view_mode() {
+    try {
+      return localStorage.getItem(this.VIEW_LS) === "default" ? "default" : "minecraft";
+    } catch (e) {
+      return "minecraft";
+    }
+  },
+
+  set_view_mode(mode) {
+    try { localStorage.setItem(this.VIEW_LS, mode === "default" ? "default" : "minecraft"); } catch (e) { /* private mode: fall back to default-in-memory */ }
+  },
+
+  // THE single source of hide/show logic. Reads the stored preference and renders
+  // either the Minecraft custom layout or the native ERPNext field grid. Called at
+  // the top of refresh() and again on every toggle click (no page reload needed).
+  apply_view_mode(frm) {
+    this.inject_theme();
+    if (frm.clear_custom_buttons) frm.clear_custom_buttons();
+    const field = frm.get_field("custom_form_render");
+    if (this.get_view_mode() === "default") {
+      // ERPNext Default view: put re-parented controls back, show all native fields,
+      // hide only custom_form_render, and offer a toolbar button to switch back.
+      this.restore_controls(frm);
+      (frm.meta.fields || []).forEach((df) => {
+        if (df.fieldname === "custom_form_render") {
+          if (field && !df.hidden) frm.set_df_property("custom_form_render", "hidden", 1);
+        } else if (df.hidden) {
+          frm.set_df_property(df.fieldname, "hidden", 0);
+        }
+      });
+      frm.add_custom_button("Switch to Minecraft View", () => {
+        AEA.set_view_mode("minecraft");
+        AEA.apply_view_mode(frm);
+      });
+      this.render_verdict_from_doc(frm); // draw the verdict into the native HTML field
+    } else {
+      // Minecraft view: full custom render (render_form hides the natives itself).
+      this.render_form(frm);
+    }
+  },
+
   reparent_controls(frm) {
     const wrap = frm.get_field("custom_form_render").$wrapper;
     this.REPARENT_FIELDS.forEach((fn) => {
       const f = frm.fields_dict[fn];
       const host = wrap.find("#aea-ctl-" + fn);
       if (f && f.$wrapper && host.length) {
+        // Leave a hidden anchor at the control's ORIGINAL native position the first
+        // time we move it, so restore_controls() can put it back for Default view.
+        // (Re)create the anchor only when the control currently sits in its native
+        // parent — never when it's already in our host or detached mid-refresh.
+        const inHost = host[0] && f.$wrapper.parent()[0] === host[0];
+        if ((!f._aea_anchor || !f._aea_anchor.parent().length) && f.$wrapper.parent().length && !inHost) {
+          f._aea_anchor = $('<span class="aea-anchor" style="display:none"></span>');
+          f.$wrapper.before(f._aea_anchor);
+        }
         host.append(f.$wrapper);
+        f.$wrapper.removeClass("hidden").css("display", "");
+      }
+    });
+  },
+
+  restore_controls(frm) {
+    // Move the re-parented native controls back to their original native positions
+    // (used when switching to ERPNext Default view). Safe/no-op if never reparented.
+    this.REPARENT_FIELDS.forEach((fn) => {
+      const f = frm.fields_dict[fn];
+      if (f && f.$wrapper && f._aea_anchor && f._aea_anchor.parent().length) {
+        f._aea_anchor.before(f.$wrapper);
         f.$wrapper.removeClass("hidden").css("display", "");
       }
     });
@@ -1386,6 +1479,10 @@ const AEA = {
     wrap.find('[data-aea-action="run"]').on("click", () => AEA.run_assessment(frm));
     wrap.find('[data-aea-action="ai"]').on("click", () => AEA.open_ai_settings(frm));
     wrap.find('[data-aea-action="reextract"]').on("click", () => AEA.extract_from_pdf(frm));
+    wrap.find('[data-aea-action="viewdefault"]').on("click", () => {
+      AEA.set_view_mode("default");
+      AEA.apply_view_mode(frm);
+    });
   },
 
   sync_from_doc(frm) {
@@ -1410,30 +1507,64 @@ const AEA = {
   },
 
   render_verdict_from_doc(frm) {
-    const host = frm.get_field("custom_form_render").$wrapper.find("#aea-verdict");
-    if (!host.length) return;
+    // Mode-agnostic: build_result_html() routes the output to the Minecraft card or the
+    // native eligibility_result_html field based on the active view mode.
+    let detail = null;
     if (frm.doc.assessment_detail) {
-      let detail = null;
       try { detail = JSON.parse(frm.doc.assessment_detail); } catch (e) { detail = null; }
-      if (detail && detail.criteria) { this.build_result_html(frm, detail); return; }
     }
-    host.html('<div class="mc-verdict-empty">No assessment yet — upload a PDF, review the Applicant Details, then press RUN ASSESSMENT.</div>');
+    if (detail && detail.criteria) {
+      this.build_result_html(frm, detail);
+    } else {
+      this.render_verdict_empty(frm);
+    }
+  },
+
+  render_verdict_empty(frm) {
+    const inner = '<div class="mc-verdict-empty">No assessment yet — upload a PDF, review the Applicant Details, then press RUN ASSESSMENT.</div>';
+    this.write_verdict(frm, inner);
+  },
+
+  // Routes verdict HTML to the correct target for the active view mode. Minecraft mode
+  // -> the #aea-verdict card inside custom_form_render (already within .mc-root). Default
+  // mode -> the native eligibility_result_html field (wrapped in .aea-plain, no pixel skin).
+  write_verdict(frm, inner) {
+    const field = frm.get_field && frm.get_field("custom_form_render");
+    const host = (this.get_view_mode() === "minecraft" && field && field.$wrapper)
+      ? field.$wrapper.find("#aea-verdict") : null;
+    if (host && host.length) {
+      host.html(inner);
+    } else {
+      frm.set_df_property("eligibility_result_html", "options", '<div class="aea-plain">' + inner + '</div>');
+      frm.refresh_field("eligibility_result_html");
+    }
   },
 
   on_doc_field_change(frm) {
     // Fired by the field-level form.on handlers when the script/AI writes a value.
-    // Only acts once the custom shell exists; pure display re-sync, no engine logic.
-    const f = frm.get_field ? frm.get_field("custom_form_render") : null;
-    if (!f || !f.$wrapper || !f.$wrapper.find(".mc-root").length) return;
-    this.sync_from_doc(frm);
-    this.render_verdict_from_doc(frm);
+    // Display-only re-sync, no engine logic.
+    if (this.get_view_mode() === "minecraft") {
+      const f = frm.get_field ? frm.get_field("custom_form_render") : null;
+      if (!f || !f.$wrapper || !f.$wrapper.find(".mc-root").length) return;
+      this.sync_from_doc(frm);
+      this.render_verdict_from_doc(frm);
+    } else {
+      this.render_verdict_from_doc(frm); // native mode: refresh the native verdict field
+    }
   },
 
   // ---------- HTML render ----------
+  // ONE shared verdict builder used by BOTH view modes. build_verdict_inner() +
+  // build_criteria_table() produce theme-neutral markup (aea-* classes); the pixel
+  // vs. standard look is purely CSS (.mc-root overrides). write_verdict() routes it
+  // to the Minecraft card or the native field. DATA reads are unchanged — the same
+  // detail.criteria.{age,academic,english}, detail.flags and proposed_alternative.
   build_result_html(frm, detail) {
-    // DATA LOGIC UNCHANGED — reads rec, detail.criteria.{academic,english,age},
-    // detail.flags, and proposed_alternative exactly as before. Only the markup
-    // (Minecraft theme) and the injection target (top verdict card) changed.
+    this.write_verdict(frm, this.build_verdict_inner(frm, detail));
+  },
+
+  build_verdict_inner(frm, detail) {
+    const esc = frappe.utils.escape_html;
     const rec = frm.doc.recommendation || "Manual Review";
     const badgeBg = {
       "Eligible": "#5B8A2D", "Not Eligible": "#9e2b25",
@@ -1442,52 +1573,62 @@ const AEA = {
       "Manual Review": "#6e6e66"
     }[rec] || "#6e6e66";
 
-    const criterionCard = (label, c) => {
-      if (!c) return "";
-      const mod = c.status === "Pass" ? "pass" : c.status === "Fail" ? "fail" : "review";
-      return `
-        <div class="mc-crit mc-crit--${mod}">
-          <div class="mc-crit-h">${label}</div>
-          <div class="mc-crit-s">${frappe.utils.escape_html(c.status)}</div>
-          <div class="mc-crit-r">${frappe.utils.escape_html(c.requirement || "")}</div>
-        </div>`;
-    };
+    const table = this.build_criteria_table(frm, detail);
 
     const flagsHtml = (detail.flags || []).length
-      ? `<ul class="mc-flags">${detail.flags.map((f) => `<li>${frappe.utils.escape_html(f)}</li>`).join("")}</ul>`
+      ? `<ul class="aea-flags">${detail.flags.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>`
       : "";
 
     const altHtml = frm.doc.proposed_alternative
-      ? `<div class="mc-alt"><div class="mc-alt-h">Proposed Alternative</div><div class="mc-alt-v">${frappe.utils.escape_html(frm.doc.proposed_alternative)}</div></div>`
+      ? `<div class="aea-alt"><div class="aea-alt-h">Proposed Alternative</div><div class="aea-alt-v">${esc(frm.doc.proposed_alternative)}</div></div>`
       : "";
 
-    const html = `
-      <div class="mc-badge" style="background:${badgeBg}">${frappe.utils.escape_html(rec)}</div>
-      <div class="mc-crit-row">
-        ${criterionCard("Academic", detail.criteria && detail.criteria.academic)}
-        ${criterionCard("English", detail.criteria && detail.criteria.english)}
-        ${criterionCard("Age", detail.criteria && detail.criteria.age)}
-      </div>
-      ${flagsHtml}
-      ${altHtml}`;
+    return `<div class="aea-rec" style="background:${badgeBg}">${esc(rec)}</div>${table}${flagsHtml}${altHtml}`;
+  },
 
-    const field = frm.get_field && frm.get_field("custom_form_render");
-    const host = field && field.$wrapper ? field.$wrapper.find("#aea-verdict") : null;
-    if (host && host.length) {
-      host.html(html); // promoted verdict card at the top of the custom layout
-    } else {
-      // Fallback: custom layout not present — render into the native HTML field.
-      frm.set_df_property("eligibility_result_html", "options",
-        `<div class="mc-root"><div class="mc-verdict">${html}</div></div>`);
-      frm.refresh_field("eligibility_result_html");
+  // Requirement-vs-actual comparison, one row per criterion (Age, Academic, English).
+  // Pulls actuals straight from the same detail fields run_assessment() already computed
+  // (applicantAge / requiredMinimumAge / matchedQualification / requirement) plus the
+  // extracted english_test + english_score. Status is shown as OK / NOT OK / REVIEW.
+  build_criteria_table(frm, detail) {
+    const esc = frappe.utils.escape_html;
+    const c = (detail && detail.criteria) || {};
+    const badge = (status) => {
+      const map = { Pass: ["ok", "OK"], Fail: ["notok", "NOT OK"], Review: ["review", "REVIEW"] };
+      const m = map[status] || ["review", "REVIEW"];
+      return `<span class="aea-badge aea-badge--${m[0]}">${m[1]}</span>`;
+    };
+    const has = (v) => v !== null && v !== undefined && v !== "";
+    const rows = [];
+
+    if (c.age) {
+      const req = has(c.age.requiredMinimumAge) ? "Minimum age " + c.age.requiredMinimumAge : "Not specified";
+      const act = has(c.age.applicantAge) ? String(c.age.applicantAge) : "Unknown (no DOB)";
+      rows.push(["Age", req, act, c.age.status]);
     }
+    if (c.academic) {
+      const req = c.academic.requirement || "—";
+      const act = c.academic.matchedQualification || frm.doc.highest_qualification || "None on record";
+      rows.push(["Academic", req, act, c.academic.status]);
+    }
+    if (c.english) {
+      const req = c.english.requirement || "—";
+      const parts = [frm.doc.english_test, frm.doc.english_score].filter(has);
+      const act = parts.length ? parts.join(" ") : "None on record";
+      rows.push(["English", req, act, c.english.status]);
+    }
+
+    const body = rows.map((r) =>
+      `<tr><td class="aea-crit-name">${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td>${badge(r[3])}</td></tr>`
+    ).join("");
+
+    return `<table class="aea-cmp"><thead><tr><th>Criterion</th><th>Requirement</th><th>Applicant</th><th>Status</th></tr></thead><tbody>${body}</tbody></table>`;
   },
 
   // ---------- entry point ----------
   bind(frm) {
-    // The toolbar actions (Run Assessment / AI Settings / Re-extract) are rendered
-    // as Minecraft buttons inside the custom layout by render_form(), wired to the
-    // same AEA.* functions — no native page buttons are added.
-    this.render_form(frm);
+    // Render whichever view mode was last chosen (localStorage `aea_form_view`).
+    // apply_view_mode() is the single authority for all field hide/show logic.
+    this.apply_view_mode(frm);
   }
 };
