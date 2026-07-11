@@ -110,7 +110,23 @@ before).
 
 ## Next step
 
-Do **not** build the Client Script yet. Checkpoint 2 (the rules engine + PDF extraction)
-needs the real MER thresholds and English/academic equivalency values, plus the
-course-type controlled vocabulary — see the checklist at the bottom of
-`mer_rules.skeleton.js`, and `extraction_schema.md` for the AI extraction contract.
+The Client Script is already written — `admission_eligibility_assessment.js` — and is
+ready to use as-is, no more data to wait on:
+
+1. Create the DocType exactly as described in this guide, then **Save**.
+2. Go to **Setup > Client Script** (or search "Client Script" in the awesomebar) → **New**.
+3. **DocType:** `Admission Eligibility Assessment`. **Enabled:** checked.
+4. Paste the entire contents of `admission_eligibility_assessment.js` into the Script
+   field, then **Save**.
+5. Open a new Admission Eligibility Assessment record, attach a real applicant PDF to
+   **Application PDF**, and confirm extraction fires automatically (via AI Settings — see
+   the script's "AI Settings" button for the OpenAI key popup, stored only in this
+   browser's `localStorage`). Review/correct the extracted fields, then click
+   **Run Assessment** and confirm the Eligibility Result renders correctly.
+
+The rules data (`ACADEMIC_EQUIVALENCY`, `ENGLISH_EQUIVALENCY`, `MER_RULES`,
+`COURSE_TYPE_KEY_MAP`) is embedded directly in the Client Script, sourced from
+`mer_rules.skeleton.js`. Five data points in that file are flagged `ASK/VERIFY` — genuine
+gaps or ambiguities in the source reference material, not blockers — confirm them with UCC
+admissions when convenient and update both `mer_rules.skeleton.js` and the matching
+`// === EDIT THRESHOLDS HERE ===` block in the Client Script together.
