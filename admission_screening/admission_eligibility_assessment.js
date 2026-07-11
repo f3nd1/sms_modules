@@ -933,6 +933,35 @@ const AEA = {
 
   // ---------- assessment ----------
   async run_assessment(frm) {
+    // Pre-flight: verify the live DocType actually has every field this function writes to.
+    // A hand-built DocType can save a field under an auto-generated name (e.g. `select_jfql`)
+    // when its Label is left blank during manual creation — the writes below would then throw
+    // "Field <name> not found". Detect that here and stop with one clear message naming the
+    // offending field(s), instead of a console stack trace and a double-throw in the catch block.
+    const REQUIRED_FIELDS = [
+      "recommendation", "academic_status", "english_status", "age_status",
+      "proposed_alternative", "assessment_detail", "eligibility_result_html",
+      "assessed_on", "assessed_by", "age"
+    ];
+    const missing = REQUIRED_FIELDS.filter((fn) => !frappe.meta.get_docfield(frm.doctype, fn));
+    if (missing.length) {
+      const recHint = missing.indexOf("recommendation") !== -1
+        ? " (for example 'recommendation' should be a Select with options: Eligible / Not Eligible / " +
+          "Conditional – English Placement Required / Requires Interview / Requires Additional Documents / Manual Review)"
+        : "";
+      frappe.msgprint({
+        title: "Form fields do not match the expected schema",
+        message:
+          "This form is missing expected field(s): <b>" + frappe.utils.escape_html(missing.join(", ")) + "</b>.<br><br>" +
+          "The DocType's field list does not match admission_eligibility_assessment.json — check the DocType editor " +
+          "for a field that should be named as listed above" + recHint + " but may have been saved under a different " +
+          "auto-generated name (this happens when a field's Label is left blank during manual creation). " +
+          "No assessment was run — fix the field name and try again.",
+        indicator: "red"
+      });
+      return;
+    }
+
     try {
       const doc = frm.doc;
       const age = this.compute_age(doc.date_of_birth);
@@ -1117,8 +1146,15 @@ const AEA = {
       frappe.show_alert({ message: `Assessment complete: ${recommendation}.`, indicator: "green" });
     } catch (e) {
       console.error(e);
-      frm.set_value("recommendation", "Manual Review");
-      frm.set_value("assessment_detail", JSON.stringify({ error: e && e.message ? e.message : String(e) }, null, 2));
+      // Guard the fallback writes: if the failure was itself a missing/misnamed field, these
+      // set_value calls would throw a second, uncaught error. Swallow that and rely on the
+      // msgprint below as the single user-facing signal.
+      try {
+        frm.set_value("recommendation", "Manual Review");
+        frm.set_value("assessment_detail", JSON.stringify({ error: e && e.message ? e.message : String(e) }, null, 2));
+      } catch (eSet) {
+        console.error("Fallback set_value failed (a required field is likely missing or misnamed):", eSet);
+      }
       frappe.msgprint({
         title: "Assessment error",
         message: "Something went wrong while assessing this applicant. Recommendation set to Manual Review. Details: " +
