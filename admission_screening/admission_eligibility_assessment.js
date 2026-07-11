@@ -768,6 +768,8 @@ const AEA = {
           Object.keys(this.COURSE_TYPE_KEY_MAP).join(" | "),
         "work_experience_years is total relevant work experience summed across any employment history shown, in years (decimal allowed).",
         "Do not invent any value not evidenced in the document — use null for anything not found. Put anything you are unsure about in extraction_notes.",
+        "Some source documents have unfilled fields where the printed text is just the field's own label (e.g. a 'Nationality' field showing the literal text 'Nationality' or 'Country of Birth' as if it were a value). Treat these as NOT FOUND and return null — do not transcribe a label as if it were data.",
+        "If the date of birth's day or month is masked, redacted, shown as asterisks, or otherwise illegible, return date_of_birth as null and note it in extraction_notes — do NOT substitute a day/month from any other date on the document (such as application date, issue date, or decision date).",
         "Return JSON only."
       ].join("\n");
 
@@ -814,31 +816,111 @@ const AEA = {
         return;
       }
 
-      frm.set_value("extracted_json", JSON.stringify(extracted, null, 2));
-
       const fieldMap = {
         applicant_name: "applicant_name", date_of_birth: "date_of_birth", nationality: "nationality",
         residence_status: "residence_status", program_applied: "program_applied", course_type: "course_type",
         student_type: "student_type", highest_qualification: "highest_qualification", english_test: "english_test",
         english_score: "english_score", work_experience_years: "work_experience_years"
       };
+
+      // Notes we add client-side (label-echo discards, DOB guard) so the reviewer sees exactly
+      // what was skipped and why — appended to the model's own extraction_notes.
+      const autoNotes = [];
+
+      // Placeholder / label-echo patterns per field. Some source PDFs print an unfilled field's
+      // own label into the value position (e.g. "Nationality: Country of Birth"); the vision model
+      // then transcribes that label as if it were data. Any value that is just the field's label
+      // (or a known placeholder string) is treated as NOT FOUND rather than written to the field.
+      const PLACEHOLDER_PATTERNS = {
+        applicant_name: ["full name", "name", "applicant name"],
+        nationality: ["nationality", "country of birth"],
+        residence_status: ["residence status", "residency status"],
+        program_applied: ["course application for", "program applied", "programme applied", "course applied"],
+        course_type: ["course type"],
+        student_type: ["student type"],
+        highest_qualification: ["highest education level", "highest level", "highest qualification"],
+        english_test: ["english test"],
+        english_score: ["english score"]
+      };
+      const field_label = (fieldname) => {
+        const fd = frm.fields_dict[fieldname];
+        return (fd && fd.df && fd.df.label) ? fd.df.label : fieldname;
+      };
+      const is_placeholder = (fieldname, value) => {
+        const norm = String(value).trim().toLowerCase();
+        if (!norm) return false;
+        const pats = PLACEHOLDER_PATTERNS[fieldname];
+        if (pats && pats.indexOf(norm) !== -1) return true;
+        // A value identical to the field's own human label is always a leaked label.
+        return norm === String(field_label(fieldname)).trim().toLowerCase();
+      };
+
+      // DOB cross-contamination guard: collect every date-like token elsewhere in the extracted
+      // payload so we can flag a DOB whose day/month was likely lifted from another date on the doc.
+      const other_date_tokens = [];
+      const date_re = /(\d{4})-(\d{1,2})-(\d{1,2})|(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/g;
+      for (const [k, val] of Object.entries(extracted)) {
+        if (k === "date_of_birth" || val === null || val === undefined) continue;
+        const s = String(val);
+        let m;
+        while ((m = date_re.exec(s)) !== null) {
+          if (m[1]) other_date_tokens.push({ mo: +m[2], day: +m[3] });      // YYYY-MM-DD
+          else other_date_tokens.push({ mo: +m[5], day: +m[4] });           // DD/MM/YYYY (assumed)
+        }
+      }
+
       let any_set = false;
       for (const [jsonKey, fieldname] of Object.entries(fieldMap)) {
         const v = extracted[jsonKey];
-        if (v !== null && v !== undefined && v !== "") { frm.set_value(fieldname, v); any_set = true; }
+        if (v === null || v === undefined || v === "") continue;
+        if (is_placeholder(fieldname, v)) {
+          autoNotes.push(`${field_label(fieldname)} field appears unfilled in source (label echoed as value) — verify manually.`);
+          continue;
+        }
+        frm.set_value(fieldname, v);
+        any_set = true;
       }
+
+      // DOB sanity guard — only if a DOB actually survived above.
+      if (frm.doc.date_of_birth) {
+        const dm = String(frm.doc.date_of_birth).match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        if (dm) {
+          const mo = +dm[2], day = +dm[3];
+          if (other_date_tokens.some(t => t.mo === mo && t.day === day)) {
+            autoNotes.push("⚠ Possible date cross-contamination — the DOB's day/month matches another date on the document; verify DOB manually.");
+          }
+        }
+      }
+
+      // Fold client-side notes into the model's notes for both the audit trail and the reviewer.
+      const combinedNotes = [extracted.extraction_notes, ...autoNotes].filter(Boolean).join("\n");
+      extracted.extraction_notes = combinedNotes || null;
+      frm.set_value("extracted_json", JSON.stringify(extracted, null, 2));
 
       frm.set_value("extraction_status", any_set ? "Extracted" : "Extraction Failed");
 
-      if (extracted.extraction_notes) {
+      if (combinedNotes) {
         frappe.msgprint({
           title: "Extraction complete — review before assessing",
-          message: frappe.utils.escape_html(extracted.extraction_notes),
+          message: frappe.utils.escape_html(combinedNotes),
           indicator: "blue"
         });
-      } else {
-        frappe.show_alert({ message: "Extracted. Review the fields, then click Run Assessment.", indicator: "green" });
       }
+
+      // Post-extraction confirm nudge. The human-review gate stays intact — assessment only runs
+      // if the user explicitly clicks "Run Assessment Now"; "I'll Review First" is a no-op.
+      const confirmDlg = new frappe.ui.Dialog({
+        title: "Extraction complete",
+        fields: [{
+          fieldtype: "HTML",
+          options: "<div style='font-size:13px;line-height:1.5'>Extraction complete. Review the <b>Applicant Details</b> fields below, then choose whether to run the eligibility assessment now.</div>"
+        }],
+        primary_action_label: "Run Assessment Now",
+        primary_action: () => { confirmDlg.hide(); AEA.run_assessment(frm); },
+        secondary_action_label: "I'll Review First",
+        secondary_action: () => { confirmDlg.hide(); }
+      });
+      confirmDlg.show();
     } catch (e) {
       frm.set_value("extraction_status", "Extraction Failed");
       frappe.msgprint({
