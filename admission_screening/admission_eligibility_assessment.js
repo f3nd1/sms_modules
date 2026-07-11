@@ -1207,73 +1207,97 @@ const AEA = {
   REPARENT_FIELDS: ["application_pdf", "supporting_pdf", "assessed_by"],
 
   THEME_CSS: `
-.mc-root{--grass:#5B8A2D;--grass-l:#79b23a;--grass-d:#37561a;--dirt:#79573a;--dirt-d:#4f381f;--stone:#8a8a82;--stone-d:#5a5a52;--stone-l:#b6b6ac;--panel:#c6c6be;--panel-d:#5a5a52;--panel-l:#ebebe3;--ink:#2b2b26;--paper:#dedad0;--parch:#efeadd;font-family:'Courier New',Courier,monospace;color:var(--ink);padding:4px 2px 22px;}
-.mc-root *{box-sizing:border-box;border-radius:0 !important;}
-.mc-h{font-family:'Press Start 2P','Courier New',monospace;}
-.mc-page-title{font-family:'Press Start 2P','Courier New',monospace;font-size:13px;color:var(--grass-d);margin:2px 2px 14px;line-height:1.5;}
+/* ===================== SHARED STRUCTURE (theme-agnostic layout) ===================== */
+.mc-root{padding:4px 2px 22px;}
+.mc-root *{box-sizing:border-box;}
 .mc-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px;}
-.mc-btn{font-family:'Press Start 2P','Courier New',monospace;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:#f6f4e2;background:var(--grass);border:3px solid;border-color:var(--grass-l) var(--grass-d) var(--grass-d) var(--grass-l);padding:11px 14px;cursor:pointer;box-shadow:2px 2px 0 rgba(0,0,0,.35);line-height:1.4;}
-.mc-btn:hover{filter:brightness(1.08);}
-.mc-btn:active{border-color:var(--grass-d) var(--grass-l) var(--grass-l) var(--grass-d);transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(0,0,0,.35);}
-.mc-btn--stone{background:var(--stone);border-color:var(--stone-l) var(--stone-d) var(--stone-d) var(--stone-l);}
-.mc-btn--stone:active{border-color:var(--stone-d) var(--stone-l) var(--stone-l) var(--stone-d);}
-.mc-panel{background:var(--panel);border:4px solid;border-color:var(--panel-l) var(--panel-d) var(--panel-d) var(--panel-l);padding:0;margin:0 0 14px;box-shadow:3px 3px 0 rgba(0,0,0,.25);}
-.mc-sec-title{font-family:'Press Start 2P','Courier New',monospace;font-size:11px;color:#f6f4e2;background:var(--dirt);border-bottom:3px solid var(--dirt-d);padding:11px 12px;text-transform:uppercase;letter-spacing:.5px;}
 .mc-sec-body{padding:14px 14px 6px;}
-.mc-note{font-size:12px;color:#5a4a36;background:var(--parch);border:2px solid #c9bd9c;padding:9px 11px;margin:0 0 13px;line-height:1.5;}
 .mc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 16px;margin-bottom:8px;}
 .mc-field{display:flex;flex-direction:column;gap:5px;}
-.mc-label{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;color:#4a4a42;text-transform:uppercase;letter-spacing:.4px;line-height:1.5;}
-.mc-input,.mc-textarea{font-family:'Courier New',Courier,monospace;font-size:13px;color:var(--ink);background:var(--paper);border:3px solid;border-color:#3a3a34 #ebebe3 #ebebe3 #3a3a34;padding:7px 8px;width:100%;outline:none;}
-.mc-input:focus,.mc-textarea:focus{background:#fffef4;border-color:var(--grass-d) var(--grass-l) var(--grass-l) var(--grass-d);}
+.mc-input,.mc-textarea,.mc-chip{width:100%;outline:none;}
 .mc-textarea{min-height:72px;resize:vertical;}
-.mc-chip{font-family:'Courier New',Courier,monospace;font-size:13px;color:var(--ink);background:var(--panel-l);border:3px solid;border-color:#3a3a34 #ebebe3 #ebebe3 #3a3a34;padding:7px 8px;min-height:34px;}
-.mc-ctl{background:var(--paper);border:3px solid;border-color:#3a3a34 #ebebe3 #ebebe3 #3a3a34;padding:8px;}
+.mc-chip{min-height:34px;}
 .mc-ctl .control-label,.mc-ctl .help-box,.mc-ctl .comment-box{display:none !important;}
 .mc-ctl .frappe-control{margin:0 !important;}
 .mc-ctl .form-group{margin-bottom:0 !important;}
-.mc-verdict{background:var(--panel);border:4px solid;border-color:var(--panel-l) var(--panel-d) var(--panel-d) var(--panel-l);box-shadow:4px 4px 0 rgba(0,0,0,.3);padding:16px;margin:0 0 16px;}
-.mc-badge{display:inline-block;font-family:'Press Start 2P','Courier New',monospace;font-size:12px;color:#f6f4e2;padding:11px 15px;border:3px solid rgba(0,0,0,.35);margin-bottom:14px;text-transform:uppercase;box-shadow:2px 2px 0 rgba(0,0,0,.3);line-height:1.5;}
-.mc-crit-row{display:flex;gap:10px;flex-wrap:wrap;}
-.mc-crit{flex:1;min-width:180px;background:var(--paper);border:3px solid;border-color:#ebebe3 #5a5a52 #5a5a52 #ebebe3;padding:11px;}
-.mc-crit-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;letter-spacing:.4px;text-transform:uppercase;line-height:1.5;}
-.mc-crit-s{font-family:'Press Start 2P','Courier New',monospace;font-size:14px;margin:7px 0;line-height:1.4;}
-.mc-crit-r{font-size:12px;color:#44443c;line-height:1.45;}
-.mc-crit--pass .mc-crit-h,.mc-crit--pass .mc-crit-s{color:#37561a;}
-.mc-crit--fail .mc-crit-h,.mc-crit--fail .mc-crit-s{color:#9e2b25;}
-.mc-crit--review .mc-crit-h,.mc-crit--review .mc-crit-s{color:#946a17;}
-.mc-flags{margin:14px 0 0;padding-left:20px;font-size:12.5px;color:#4a4a42;line-height:1.6;}
-.mc-alt{margin-top:14px;background:var(--parch);border:3px solid #c9bd9c;padding:10px 12px;}
-.mc-alt-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;text-transform:uppercase;color:#6b5a3a;line-height:1.5;}
-.mc-alt-v{font-size:14px;color:#4a3a22;margin-top:5px;}
-.mc-verdict-empty{font-family:'Courier New',Courier,monospace;font-size:13px;color:#5a5a52;padding:6px 2px;line-height:1.5;}
 .mc-raw{display:none;margin-top:12px;}
-.mc-json-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;text-transform:uppercase;color:#4a4a42;margin-top:10px;line-height:1.5;}
-.mc-json{font-family:'Courier New',Courier,monospace;font-size:11.5px;color:#d8f0c0;background:#2b2b26;border:3px solid;border-color:#000 #4a4a42 #4a4a42 #000;padding:10px;max-height:280px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 12px;}
-/* ---- Shared verdict / comparison table (base styling; used verbatim in BOTH view modes) ---- */
-.aea-rec{display:inline-block;font-weight:700;font-size:14px;color:#fff;padding:8px 14px;margin-bottom:12px;border:2px solid rgba(0,0,0,.25);}
+.mc-btn{cursor:pointer;}
+/* shared verdict/table STRUCTURE (colors/typography come from the theme blocks below) */
+.aea-rec{display:inline-block;font-weight:700;color:#fff;margin-bottom:12px;}
 .aea-cmp{width:100%;border-collapse:collapse;font-size:13px;margin:2px 0 4px;}
-.aea-cmp th{text-align:left;background:#eef1e8;padding:8px 10px;border:1px solid #cfcfc4;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#4a4a42;}
-.aea-cmp td{padding:8px 10px;border:1px solid #d8d8cc;vertical-align:top;color:#333;line-height:1.4;}
+.aea-cmp th{text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+.aea-cmp td{padding:8px 10px;vertical-align:top;line-height:1.4;}
 .aea-cmp .aea-crit-name{font-weight:700;white-space:nowrap;}
-.aea-badge{display:inline-block;font-weight:700;font-size:11px;padding:4px 9px;border:1px solid rgba(0,0,0,.2);white-space:nowrap;}
+.aea-badge{display:inline-block;font-weight:700;font-size:11px;padding:4px 9px;white-space:nowrap;}
+.aea-flags{margin:12px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6;}
+.aea-alt{margin-top:12px;padding:9px 11px;}
+.aea-alt-h{font-size:11px;text-transform:uppercase;font-weight:700;}
+.aea-alt-v{font-size:14px;margin-top:3px;}
+/* Status badge colours — clear green/red/amber coding kept in BOTH skins */
 .aea-badge--ok{background:#e3f2df;color:#2e6b1f;}
 .aea-badge--notok{background:#fde3e0;color:#9e2b25;}
 .aea-badge--review{background:#fdf3d9;color:#8a6a17;}
-.aea-flags{margin:12px 0 0;padding-left:18px;font-size:12.5px;color:#555;line-height:1.6;}
-.aea-alt{margin-top:12px;background:#eef2fb;border:1px solid #c3cbe0;padding:9px 11px;}
-.aea-alt-h{font-size:11px;text-transform:uppercase;font-weight:700;color:#33406a;}
-.aea-alt-v{font-size:14px;color:#1a3b6e;margin-top:3px;}
-/* ---- Minecraft-mode overrides (pixel flavor) applied only inside .mc-root ---- */
-.mc-root .aea-rec{font-family:'Press Start 2P','Courier New',monospace;font-size:12px;border:3px solid rgba(0,0,0,.35);box-shadow:2px 2px 0 rgba(0,0,0,.3);padding:11px 15px;text-transform:uppercase;line-height:1.5;}
-.mc-root .aea-cmp{font-family:'Courier New',Courier,monospace;}
-.mc-root .aea-cmp th{background:var(--dirt);color:#f6f4e2;border:3px solid var(--dirt-d);font-family:'Press Start 2P','Courier New',monospace;font-size:8px;line-height:1.5;}
-.mc-root .aea-cmp td{background:var(--paper);border:3px solid;border-color:#ebebe3 #5a5a52 #5a5a52 #ebebe3;}
-.mc-root .aea-badge{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;border:2px solid rgba(0,0,0,.35);padding:6px 8px;line-height:1.5;}
-.mc-root .aea-flags{color:#4a4a42;}
-.mc-root .aea-alt{background:var(--parch);border:3px solid #c9bd9c;}
-.mc-root .aea-alt-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;color:#6b5a3a;}
-.aea-plain{font-family:inherit;}
+
+/* ===================== MINECRAFT SKIN ===================== */
+.aea-theme-minecraft{--grass:#5B8A2D;--grass-l:#79b23a;--grass-d:#37561a;--dirt:#79573a;--dirt-d:#4f381f;--stone:#8a8a82;--stone-d:#5a5a52;--stone-l:#b6b6ac;--panel:#c6c6be;--panel-d:#5a5a52;--panel-l:#ebebe3;--ink:#2b2b26;--paper:#dedad0;--parch:#efeadd;font-family:'Courier New',Courier,monospace;color:var(--ink);}
+.aea-theme-minecraft *{border-radius:0 !important;}
+.aea-theme-minecraft .mc-page-title{font-family:'Press Start 2P','Courier New',monospace;font-size:13px;color:var(--grass-d);margin:2px 2px 14px;line-height:1.5;}
+.aea-theme-minecraft .mc-btn{font-family:'Press Start 2P','Courier New',monospace;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:#f6f4e2;background:var(--grass);border:3px solid;border-color:var(--grass-l) var(--grass-d) var(--grass-d) var(--grass-l);padding:11px 14px;box-shadow:2px 2px 0 rgba(0,0,0,.35);line-height:1.4;}
+.aea-theme-minecraft .mc-btn:hover{filter:brightness(1.08);}
+.aea-theme-minecraft .mc-btn:active{border-color:var(--grass-d) var(--grass-l) var(--grass-l) var(--grass-d);transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(0,0,0,.35);}
+.aea-theme-minecraft .mc-btn--stone{background:var(--stone);border-color:var(--stone-l) var(--stone-d) var(--stone-d) var(--stone-l);}
+.aea-theme-minecraft .mc-btn--stone:active{border-color:var(--stone-d) var(--stone-l) var(--stone-l) var(--stone-d);}
+.aea-theme-minecraft .mc-panel{background:var(--panel);border:4px solid;border-color:var(--panel-l) var(--panel-d) var(--panel-d) var(--panel-l);margin:0 0 14px;box-shadow:3px 3px 0 rgba(0,0,0,.25);}
+.aea-theme-minecraft .mc-sec-title{font-family:'Press Start 2P','Courier New',monospace;font-size:11px;color:#f6f4e2;background:var(--dirt);border-bottom:3px solid var(--dirt-d);padding:11px 12px;text-transform:uppercase;letter-spacing:.5px;}
+.aea-theme-minecraft .mc-note{font-size:12px;color:#5a4a36;background:var(--parch);border:2px solid #c9bd9c;padding:9px 11px;margin:0 0 13px;line-height:1.5;}
+.aea-theme-minecraft .mc-label{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;color:#4a4a42;text-transform:uppercase;letter-spacing:.4px;line-height:1.5;}
+.aea-theme-minecraft .mc-input,.aea-theme-minecraft .mc-textarea{font-family:'Courier New',Courier,monospace;font-size:13px;color:var(--ink);background:var(--paper);border:3px solid;border-color:#3a3a34 #ebebe3 #ebebe3 #3a3a34;padding:7px 8px;}
+.aea-theme-minecraft .mc-input:focus,.aea-theme-minecraft .mc-textarea:focus{background:#fffef4;border-color:var(--grass-d) var(--grass-l) var(--grass-l) var(--grass-d);}
+.aea-theme-minecraft .mc-chip{font-family:'Courier New',Courier,monospace;font-size:13px;color:var(--ink);background:var(--panel-l);border:3px solid;border-color:#3a3a34 #ebebe3 #ebebe3 #3a3a34;padding:7px 8px;}
+.aea-theme-minecraft .mc-ctl{background:var(--paper);border:3px solid;border-color:#3a3a34 #ebebe3 #ebebe3 #3a3a34;padding:8px;}
+.aea-theme-minecraft .mc-verdict{background:var(--panel);border:4px solid;border-color:var(--panel-l) var(--panel-d) var(--panel-d) var(--panel-l);box-shadow:4px 4px 0 rgba(0,0,0,.3);padding:16px;margin:0 0 16px;}
+.aea-theme-minecraft .mc-verdict-empty{font-family:'Courier New',Courier,monospace;font-size:13px;color:#5a5a52;padding:6px 2px;line-height:1.5;}
+.aea-theme-minecraft .mc-json-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;text-transform:uppercase;color:#4a4a42;margin-top:10px;line-height:1.5;}
+.aea-theme-minecraft .mc-json{font-family:'Courier New',Courier,monospace;font-size:11.5px;color:#d8f0c0;background:#2b2b26;border:3px solid;border-color:#000 #4a4a42 #4a4a42 #000;padding:10px;max-height:280px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 12px;}
+.aea-theme-minecraft .aea-rec{font-family:'Press Start 2P','Courier New',monospace;font-size:12px;border:3px solid rgba(0,0,0,.35);box-shadow:2px 2px 0 rgba(0,0,0,.3);padding:11px 15px;text-transform:uppercase;line-height:1.5;}
+.aea-theme-minecraft .aea-cmp{font-family:'Courier New',Courier,monospace;}
+.aea-theme-minecraft .aea-cmp th{background:var(--dirt);color:#f6f4e2;border:3px solid var(--dirt-d);font-family:'Press Start 2P','Courier New',monospace;font-size:8px;line-height:1.5;}
+.aea-theme-minecraft .aea-cmp td{background:var(--paper);border:3px solid;border-color:#ebebe3 #5a5a52 #5a5a52 #ebebe3;color:#333;}
+.aea-theme-minecraft .aea-badge{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;border:2px solid rgba(0,0,0,.35);padding:6px 8px;line-height:1.5;}
+.aea-theme-minecraft .aea-flags{color:#4a4a42;}
+.aea-theme-minecraft .aea-alt{background:var(--parch);border:3px solid #c9bd9c;}
+.aea-theme-minecraft .aea-alt-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;color:#6b5a3a;}
+.aea-theme-minecraft .aea-alt-v{color:#4a3a22;}
+
+/* ===================== DEFAULT (plain business) SKIN ===================== */
+.aea-theme-default{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f272e;}
+.aea-theme-default .mc-page-title{font-size:18px;font-weight:700;color:#1f272e;margin:2px 2px 16px;line-height:1.3;}
+.aea-theme-default .mc-btn{font-family:inherit;font-size:13px;font-weight:600;color:#fff;background:#2490EF;border:1px solid #2490EF;border-radius:6px;padding:8px 14px;line-height:1.4;}
+.aea-theme-default .mc-btn:hover{background:#1a7fd4;border-color:#1a7fd4;}
+.aea-theme-default .mc-btn--stone{color:#2490EF;background:#fff;border:1px solid #c7ced6;}
+.aea-theme-default .mc-btn--stone:hover{background:#f4f6f8;border-color:#9aa4af;color:#1a7fd4;}
+.aea-theme-default .mc-panel{background:#fff;border:1px solid #d1d8dd;border-radius:6px;margin:0 0 14px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+.aea-theme-default .mc-sec-title{font-size:13px;font-weight:700;color:#31445a;background:transparent;border-bottom:1px solid #e2e6ea;padding:11px 14px;}
+.aea-theme-default .mc-note{font-size:12.5px;color:#5c6773;background:#f4f6f8;border:1px solid #e2e6ea;border-radius:4px;padding:9px 11px;margin:0 0 13px;line-height:1.5;}
+.aea-theme-default .mc-label{font-family:inherit;font-size:11px;font-weight:600;color:#6c7680;text-transform:uppercase;letter-spacing:.02em;line-height:1.4;}
+.aea-theme-default .mc-input,.aea-theme-default .mc-textarea{font-family:inherit;font-size:13px;color:#1f272e;background:#fff;border:1px solid #d1d8dd;border-radius:4px;padding:7px 9px;}
+.aea-theme-default .mc-input:focus,.aea-theme-default .mc-textarea:focus{border-color:#2490EF;box-shadow:0 0 0 2px rgba(36,144,239,.15);}
+.aea-theme-default .mc-chip{font-family:inherit;font-size:13px;color:#1f272e;background:#f4f6f8;border:1px solid #d1d8dd;border-radius:4px;padding:7px 9px;}
+.aea-theme-default .mc-ctl{background:#fff;border:1px solid #d1d8dd;border-radius:4px;padding:8px;}
+.aea-theme-default .mc-verdict{background:#fff;border:1px solid #d1d8dd;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:16px;margin:0 0 16px;}
+.aea-theme-default .mc-verdict-empty{font-family:inherit;font-size:13px;color:#6c7680;padding:6px 2px;line-height:1.5;}
+.aea-theme-default .mc-json-h{font-family:inherit;font-size:11px;font-weight:600;text-transform:uppercase;color:#6c7680;margin-top:10px;}
+.aea-theme-default .mc-json{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;color:#2b3a2b;background:#f6f8fa;border:1px solid #d1d8dd;border-radius:4px;padding:10px;max-height:280px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 12px;}
+.aea-theme-default .aea-rec{font-family:inherit;font-size:15px;border:none;border-radius:5px;padding:8px 14px;box-shadow:none;text-transform:none;}
+.aea-theme-default .aea-cmp{font-family:inherit;}
+.aea-theme-default .aea-cmp th{background:#f4f6f8;color:#5c6773;border:1px solid #e2e6ea;}
+.aea-theme-default .aea-cmp td{background:#fff;border:1px solid #e8ebee;color:#333;}
+.aea-theme-default .aea-badge{font-family:inherit;border:1px solid rgba(0,0,0,.08);border-radius:3px;}
+.aea-theme-default .aea-flags{color:#555;}
+.aea-theme-default .aea-alt{background:#eef5fd;border:1px solid #cfe1f6;border-radius:4px;}
+.aea-theme-default .aea-alt-h{color:#1a5fa8;}
+.aea-theme-default .aea-alt-v{color:#134a86;}
+.aea-plain{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;}
 `,
 
   inject_theme() {
@@ -1299,16 +1323,19 @@ const AEA = {
     return `<div class="mc-field">${L}<input class="mc-input" type="text" data-aea-field="${f.fn}"></div>`;
   },
 
-  build_shell_html() {
+  build_shell_html(theme) {
     const applicant = this.APPLICANT_FIELDS.map((f) => this._field_row(f)).join("");
+    // Same DOM + bindings for both skins — only the top-level theme class differs.
+    const themeClass = theme === "default" ? "aea-theme-default" : "aea-theme-minecraft";
+    const toggleLabel = theme === "default" ? "Switch to Minecraft View" : "Switch to Default View";
     return `
-      <div class="mc-root">
+      <div class="mc-root ${themeClass}">
         <div class="mc-page-title">&#9935; Admission Eligibility Assessment</div>
         <div class="mc-toolbar">
           <button type="button" class="mc-btn" data-aea-action="run">Run Assessment</button>
           <button type="button" class="mc-btn mc-btn--stone" data-aea-action="ai">AI Settings</button>
           <button type="button" class="mc-btn mc-btn--stone" data-aea-action="reextract">Re-extract from PDF</button>
-          <button type="button" class="mc-btn mc-btn--stone" data-aea-action="viewdefault">Switch to ERPNext Default View</button>
+          <button type="button" class="mc-btn mc-btn--stone" data-aea-action="toggleview">${toggleLabel}</button>
         </div>
         <div class="mc-verdict" id="aea-verdict"></div>
         <div class="mc-panel">
@@ -1344,7 +1371,12 @@ const AEA = {
       </div>`;
   },
 
-  render_form(frm) {
+  // Render the ONE custom surface in the given theme ("minecraft" | "default").
+  // Same DOM + bindings + re-parented controls for both — only the skin differs.
+  // Native fields/sections are ALWAYS hidden; this file never unhides them (see the
+  // design note: Frappe won't reliably rebuild a layout when section breaks are
+  // un-hidden dynamically, which produced the blank-page bug).
+  render_form(frm, theme) {
     this.inject_theme();
     const field = frm.get_field("custom_form_render");
     if (!field) {
@@ -1358,12 +1390,9 @@ const AEA = {
       }
       return; // fall back to native layout, do not break the form
     }
-    // Minecraft mode: make sure the custom field is visible (it may have been hidden
-    // by a previous switch to Default view).
-    if (field.df.hidden) frm.set_df_property("custom_form_render", "hidden", 0);
     // Re-render the shell each refresh (Frappe owns HTML-field content via df.options),
     // then re-attach the native controls and re-sync — this survives Frappe's own refreshes.
-    field.df.options = this.build_shell_html();
+    field.df.options = this.build_shell_html(theme === "default" ? "default" : "minecraft");
     frm.refresh_field("custom_form_render");
     this.reparent_controls(frm);
     this.wire_inputs(frm);
@@ -1375,6 +1404,7 @@ const AEA = {
   hide_native_fields(frm) {
     // Hide every native field EXCEPT custom_form_render and the three we re-parent
     // (skipping those keeps df.hidden=0 so Frappe never re-hides the moved controls).
+    // Native fields stay hidden in BOTH skins — the custom surface is the only view.
     const skip = { custom_form_render: 1, application_pdf: 1, supporting_pdf: 1, assessed_by: 1 };
     (frm.meta.fields || []).forEach((df) => {
       if (skip[df.fieldname]) return;
@@ -1397,63 +1427,25 @@ const AEA = {
     try { localStorage.setItem(this.VIEW_LS, mode === "default" ? "default" : "minecraft"); } catch (e) { /* private mode: fall back to default-in-memory */ }
   },
 
-  // THE single source of hide/show logic. Reads the stored preference and renders
-  // either the Minecraft custom layout or the native ERPNext field grid. Called at
-  // the top of refresh() and again on every toggle click (no page reload needed).
+  // THE single entry for view rendering. Reads the stored preference and renders the
+  // one custom surface in that theme. Called at the top of refresh() and on every
+  // toggle click — same fields/bindings, only the skin changes, so no reload and no
+  // re-binding from scratch (values live in frm.doc and carry over automatically).
   apply_view_mode(frm) {
-    this.inject_theme();
-    if (frm.clear_custom_buttons) frm.clear_custom_buttons();
-    const field = frm.get_field("custom_form_render");
-    if (this.get_view_mode() === "default") {
-      // ERPNext Default view: put re-parented controls back, show all native fields,
-      // hide only custom_form_render, and offer a toolbar button to switch back.
-      this.restore_controls(frm);
-      (frm.meta.fields || []).forEach((df) => {
-        if (df.fieldname === "custom_form_render") {
-          if (field && !df.hidden) frm.set_df_property("custom_form_render", "hidden", 1);
-        } else if (df.hidden) {
-          frm.set_df_property(df.fieldname, "hidden", 0);
-        }
-      });
-      frm.add_custom_button("Switch to Minecraft View", () => {
-        AEA.set_view_mode("minecraft");
-        AEA.apply_view_mode(frm);
-      });
-      this.render_verdict_from_doc(frm); // draw the verdict into the native HTML field
-    } else {
-      // Minecraft view: full custom render (render_form hides the natives itself).
-      this.render_form(frm);
-    }
+    this.render_form(frm, this.get_view_mode());
   },
 
   reparent_controls(frm) {
+    // Move Frappe's own Attach/Link controls into the custom layout so upload + link
+    // search keep working. They live in the custom host in BOTH skins (natives are
+    // always hidden), so no restore-to-native path is needed. On each re-render the
+    // shell's innerHTML is rebuilt (detaching these nodes) and we simply re-append them.
     const wrap = frm.get_field("custom_form_render").$wrapper;
     this.REPARENT_FIELDS.forEach((fn) => {
       const f = frm.fields_dict[fn];
       const host = wrap.find("#aea-ctl-" + fn);
       if (f && f.$wrapper && host.length) {
-        // Leave a hidden anchor at the control's ORIGINAL native position the first
-        // time we move it, so restore_controls() can put it back for Default view.
-        // (Re)create the anchor only when the control currently sits in its native
-        // parent — never when it's already in our host or detached mid-refresh.
-        const inHost = host[0] && f.$wrapper.parent()[0] === host[0];
-        if ((!f._aea_anchor || !f._aea_anchor.parent().length) && f.$wrapper.parent().length && !inHost) {
-          f._aea_anchor = $('<span class="aea-anchor" style="display:none"></span>');
-          f.$wrapper.before(f._aea_anchor);
-        }
         host.append(f.$wrapper);
-        f.$wrapper.removeClass("hidden").css("display", "");
-      }
-    });
-  },
-
-  restore_controls(frm) {
-    // Move the re-parented native controls back to their original native positions
-    // (used when switching to ERPNext Default view). Safe/no-op if never reparented.
-    this.REPARENT_FIELDS.forEach((fn) => {
-      const f = frm.fields_dict[fn];
-      if (f && f.$wrapper && f._aea_anchor && f._aea_anchor.parent().length) {
-        f._aea_anchor.before(f.$wrapper);
         f.$wrapper.removeClass("hidden").css("display", "");
       }
     });
@@ -1479,9 +1471,10 @@ const AEA = {
     wrap.find('[data-aea-action="run"]').on("click", () => AEA.run_assessment(frm));
     wrap.find('[data-aea-action="ai"]').on("click", () => AEA.open_ai_settings(frm));
     wrap.find('[data-aea-action="reextract"]').on("click", () => AEA.extract_from_pdf(frm));
-    wrap.find('[data-aea-action="viewdefault"]').on("click", () => {
-      AEA.set_view_mode("default");
-      AEA.apply_view_mode(frm);
+    wrap.find('[data-aea-action="toggleview"]').on("click", () => {
+      const next = AEA.get_view_mode() === "minecraft" ? "default" : "minecraft";
+      AEA.set_view_mode(next);
+      AEA.render_form(frm, next); // re-skin the same rendered form in place
     });
   },
 
@@ -1507,8 +1500,8 @@ const AEA = {
   },
 
   render_verdict_from_doc(frm) {
-    // Mode-agnostic: build_result_html() routes the output to the Minecraft card or the
-    // native eligibility_result_html field based on the active view mode.
+    // build_result_html() routes the output to the #aea-verdict card in the custom
+    // surface (present in both skins).
     let detail = null;
     if (frm.doc.assessment_detail) {
       try { detail = JSON.parse(frm.doc.assessment_detail); } catch (e) { detail = null; }
@@ -1525,16 +1518,15 @@ const AEA = {
     this.write_verdict(frm, inner);
   },
 
-  // Routes verdict HTML to the correct target for the active view mode. Minecraft mode
-  // -> the #aea-verdict card inside custom_form_render (already within .mc-root). Default
-  // mode -> the native eligibility_result_html field (wrapped in .aea-plain, no pixel skin).
+  // Writes verdict HTML into the #aea-verdict card inside custom_form_render (the sole
+  // visible surface in both skins). Falls back to the native eligibility_result_html
+  // field only if the custom_form_render field is missing entirely (setup not done).
   write_verdict(frm, inner) {
     const field = frm.get_field && frm.get_field("custom_form_render");
-    const host = (this.get_view_mode() === "minecraft" && field && field.$wrapper)
-      ? field.$wrapper.find("#aea-verdict") : null;
+    const host = field && field.$wrapper ? field.$wrapper.find("#aea-verdict") : null;
     if (host && host.length) {
       host.html(inner);
-    } else {
+    } else if (!field) {
       frm.set_df_property("eligibility_result_html", "options", '<div class="aea-plain">' + inner + '</div>');
       frm.refresh_field("eligibility_result_html");
     }
@@ -1542,23 +1534,19 @@ const AEA = {
 
   on_doc_field_change(frm) {
     // Fired by the field-level form.on handlers when the script/AI writes a value.
-    // Display-only re-sync, no engine logic.
-    if (this.get_view_mode() === "minecraft") {
-      const f = frm.get_field ? frm.get_field("custom_form_render") : null;
-      if (!f || !f.$wrapper || !f.$wrapper.find(".mc-root").length) return;
-      this.sync_from_doc(frm);
-      this.render_verdict_from_doc(frm);
-    } else {
-      this.render_verdict_from_doc(frm); // native mode: refresh the native verdict field
-    }
+    // Display-only re-sync of the custom surface, no engine logic.
+    const f = frm.get_field ? frm.get_field("custom_form_render") : null;
+    if (!f || !f.$wrapper || !f.$wrapper.find(".mc-root").length) return;
+    this.sync_from_doc(frm);
+    this.render_verdict_from_doc(frm);
   },
 
   // ---------- HTML render ----------
-  // ONE shared verdict builder used by BOTH view modes. build_verdict_inner() +
+  // ONE shared verdict builder used by BOTH skins. build_verdict_inner() +
   // build_criteria_table() produce theme-neutral markup (aea-* classes); the pixel
-  // vs. standard look is purely CSS (.mc-root overrides). write_verdict() routes it
-  // to the Minecraft card or the native field. DATA reads are unchanged — the same
-  // detail.criteria.{age,academic,english}, detail.flags and proposed_alternative.
+  // vs. plain look is purely CSS (.aea-theme-minecraft / .aea-theme-default ancestor).
+  // write_verdict() injects it into the #aea-verdict card. DATA reads are unchanged —
+  // the same detail.criteria.{age,academic,english}, detail.flags and proposed_alternative.
   build_result_html(frm, detail) {
     this.write_verdict(frm, this.build_verdict_inner(frm, detail));
   },
