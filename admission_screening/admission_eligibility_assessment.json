@@ -12,76 +12,69 @@
   "naming_rule": "Expression (old style)",
   "sort_field": "modified",
   "sort_order": "DESC",
-  "title_field": "student_applicant",
-  "search_fields": "student_applicant,recommendation",
+  "title_field": "applicant_name",
+  "search_fields": "applicant_name,recommendation",
   "fields": [
+    {
+      "fieldname": "section_break_source",
+      "fieldtype": "Section Break",
+      "label": "Source Document"
+    },
+    {
+      "fieldname": "application_pdf",
+      "fieldtype": "Attach",
+      "label": "Application PDF",
+      "reqd": 1,
+      "in_list_view": 1,
+      "description": "Upload the applicant's application form / transcript / certificate as a PDF. Re-upload to replace and re-extract."
+    },
+    {
+      "fieldname": "supporting_pdf",
+      "fieldtype": "Attach",
+      "label": "Supporting Document (optional)",
+      "description": "Optional second PDF (e.g. a separate English test certificate) if the primary document doesn't cover everything. Not a child table by design — upload one combined PDF where possible."
+    },
+    {
+      "fieldname": "column_break_source_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "extraction_status",
+      "fieldtype": "Select",
+      "label": "Extraction Status",
+      "options": "\nNot Extracted\nExtracted\nExtraction Failed\nManually Entered",
+      "read_only": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "description": "Set by the Client Script. 'Manually Entered' is set automatically if staff edit any applicant field after extraction (or type values in directly without running extraction)."
+    },
+    {
+      "fieldname": "extracted_json",
+      "fieldtype": "Code",
+      "label": "Extracted JSON (raw AI output)",
+      "options": "JSON",
+      "read_only": 1,
+      "description": "Raw JSON returned by the vision model on Extract from PDF, kept for audit/review. Not used by the rules engine directly — the rules engine reads the editable fields below, which staff can correct after extraction."
+    },
     {
       "fieldname": "section_break_applicant",
       "fieldtype": "Section Break",
-      "label": "Applicant"
+      "label": "Applicant Details"
     },
     {
-      "fieldname": "student_applicant",
-      "fieldtype": "Link",
-      "label": "Student Applicant",
-      "options": "Student Applicant",
-      "reqd": 1,
-      "in_list_view": 1,
-      "in_standard_filter": 1,
-      "description": "Select the applicant to assess. All fields below are fetched or derived from this record."
+      "fieldname": "applicant_details_note",
+      "fieldtype": "HTML",
+      "options": "<div style=\"color:#8a8f9c;font-size:12px;margin-bottom:8px\">Fields below are filled by <b>Extract from PDF</b> and are fully editable. Review and correct every value before clicking <b>Run Assessment</b> — nothing is assessed on unverified AI output.</div>"
     },
     {
       "fieldname": "applicant_name",
       "fieldtype": "Data",
-      "label": "Applicant Name",
-      "fetch_from": "student_applicant.first_name",
-      "read_only": 1
-    },
-    {
-      "fieldname": "column_break_applicant_1",
-      "fieldtype": "Column Break"
-    },
-    {
-      "fieldname": "program",
-      "fieldtype": "Link",
-      "label": "Program",
-      "options": "Program",
-      "fetch_from": "student_applicant.program",
-      "read_only": 1
-    },
-    {
-      "fieldname": "course_type",
-      "fieldtype": "Link",
-      "label": "Course Type",
-      "options": "Course Type",
-      "fetch_from": "student_applicant.custom_course_type",
-      "read_only": 1
-    },
-    {
-      "fieldname": "student_type",
-      "fieldtype": "Data",
-      "label": "Student Type",
-      "fetch_from": "student_applicant.student_type",
-      "read_only": 1
-    },
-    {
-      "fieldname": "application_status",
-      "fieldtype": "Data",
-      "label": "Application Status",
-      "fetch_from": "student_applicant.application_status",
-      "read_only": 1
-    },
-    {
-      "fieldname": "section_break_facts",
-      "fieldtype": "Section Break",
-      "label": "Facts"
+      "label": "Applicant Name"
     },
     {
       "fieldname": "date_of_birth",
       "fieldtype": "Date",
-      "label": "Date of Birth",
-      "fetch_from": "student_applicant.date_of_birth",
-      "read_only": 1
+      "label": "Date of Birth"
     },
     {
       "fieldname": "age",
@@ -93,48 +86,54 @@
     {
       "fieldname": "nationality",
       "fieldtype": "Data",
-      "label": "Nationality",
-      "fetch_from": "student_applicant.nationality",
-      "read_only": 1
+      "label": "Nationality"
     },
     {
       "fieldname": "residence_status",
       "fieldtype": "Data",
-      "label": "Residence Status",
-      "fetch_from": "student_applicant.residence_status",
-      "read_only": 1
+      "label": "Residence Status"
     },
     {
-      "fieldname": "column_break_facts_1",
+      "fieldname": "column_break_applicant_1",
       "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "program_applied",
+      "fieldtype": "Data",
+      "label": "Program Applied",
+      "description": "Plain text, not a Link — AI-extracted text will not always match an existing Program record exactly. Switch to Link→Program later if you want strict validation."
+    },
+    {
+      "fieldname": "course_type",
+      "fieldtype": "Data",
+      "label": "Course Type",
+      "description": "Plain text. The Client Script's extraction prompt should steer this toward one of the controlled course-type names used in COURSE_TYPE_KEY_MAP (see mer_rules.skeleton.js) so the rules engine can match it."
+    },
+    {
+      "fieldname": "student_type",
+      "fieldtype": "Data",
+      "label": "Student Type"
     },
     {
       "fieldname": "highest_qualification",
       "fieldtype": "Data",
-      "label": "Highest Qualification",
-      "read_only": 1,
-      "description": "Derived by the Client Script from the applicant's Educational Background child table."
+      "label": "Highest Qualification"
     },
     {
       "fieldname": "english_test",
       "fieldtype": "Data",
-      "label": "English Test",
-      "read_only": 1,
-      "description": "Derived by the Client Script from the applicant's language test evidence/attachments."
+      "label": "English Test"
     },
     {
       "fieldname": "english_score",
       "fieldtype": "Data",
-      "label": "English Score",
-      "read_only": 1
+      "label": "English Score"
     },
     {
       "fieldname": "work_experience_years",
       "fieldtype": "Float",
       "label": "Work Experience (Years)",
-      "precision": "1",
-      "read_only": 1,
-      "description": "Summed by the Client Script from the applicant's Employment History child table."
+      "precision": "1"
     },
     {
       "fieldname": "section_break_result",

@@ -140,9 +140,10 @@ const MER_RULES = {
 
 // -----------------------------------------------------------------------------
 // 2. ACADEMIC_EQUIVALENCY — ordered tiers (lowest to highest), plus a lookup from
-//    a raw qualification name (as it appears in the applicant's Educational
-//    Background child table) to a tier key. `requiredAcademicLevel` above should
-//    reference one of these tier `key`s.
+//    a raw qualification name (as it lands in the DocType's own
+//    `highest_qualification` field — filled by AI extraction from the uploaded
+//    PDF, then staff-editable) to a tier key. `requiredAcademicLevel` above
+//    should reference one of these tier `key`s.
 // -----------------------------------------------------------------------------
 
 // === EDIT THRESHOLDS HERE ===
@@ -156,11 +157,13 @@ const ACADEMIC_EQUIVALENCY = {
     { key: "TIER_DEGREE", label: "Bachelor's Degree equivalent", rank: 5 },
     { key: "TIER_POSTGRAD", label: "Postgraduate / Master's equivalent", rank: 6 }
   ],
-  // ASK: what qualification-name strings actually appear in your applicants'
-  // Educational Background records (e.g. "GCE O-Level", "SPM", "High School Diploma",
-  // "STPM", "Bachelor of Business Administration", ...)? List them and I will map each
-  // to a tier key above. A few common examples are sketched (commented out) below —
-  // uncomment and correct once confirmed, or replace entirely.
+  // ASK: what qualification-name strings are likely to show up in
+  // `highest_qualification` (as extracted from applicants' transcripts/certificates,
+  // or typed by staff) — e.g. "GCE O-Level", "SPM", "High School Diploma", "STPM",
+  // "Bachelor of Business Administration", ...? List them and I will map each to a
+  // tier key above. A few common examples are sketched (commented out) below —
+  // uncomment and correct once confirmed, or replace entirely. The extraction
+  // prompt in checkpoint 2 can also be steered to prefer these exact strings.
   qualificationToTier: {
     // "GCE O-Level": "TIER_SECONDARY",
     // "IGCSE": "TIER_SECONDARY",
@@ -251,31 +254,37 @@ const ENGLISH_EQUIVALENCY = [
 ];
 
 // -----------------------------------------------------------------------------
-// 4. COURSE_TYPE_KEY_MAP — maps the real value fetched from
-//    Student Applicant.custom_course_type (a Link -> Course Type) onto a key in
-//    MER_RULES above. Frappe Link field values are the target doc's `name`, so
-//    the left-hand side here must be the exact Course Type record names in your
-//    system (or Program names, if you decide to key by Program instead).
+// 4. COURSE_TYPE_KEY_MAP — maps the value in this DocType's own `course_type`
+//    field (a plain Data field — AI-extracted from the uploaded PDF, then
+//    staff-editable; there is no Student Applicant link anymore) onto a key in
+//    MER_RULES above. Because `course_type` is free text rather than a
+//    validated Link, the left-hand side here should be the exact controlled
+//    vocabulary you want staff/the AI extraction prompt to use — see
+//    extraction_schema.md's "Course type controlled vocabulary" section, which
+//    references these same strings. The Client Script (checkpoint 2) should do
+//    a best-effort (case-insensitive / partial) match against these keys,
+//    since free text can still drift from the exact string.
 // -----------------------------------------------------------------------------
 
 // === EDIT THRESHOLDS HERE ===
 const COURSE_TYPE_KEY_MAP = {
-  // "<exact Course Type record name>": "PREP_AEIS",
-  // "<exact Course Type record name>": "PREP_OLEVEL",
-  // "<exact Course Type record name>": "PREP_ALEVEL",
-  // "<exact Course Type record name>": "ENGLISH_L1",
-  // "<exact Course Type record name>": "ENGLISH_L2",
-  // "<exact Course Type record name>": "ENGLISH_L3",
-  // "<exact Course Type record name>": "ENGLISH_IELTS_PREP",
-  // "<exact Course Type record name>": "GENERAL_MANAGEMENT",
-  // "<exact Course Type record name>": "BIZ_DIPLOMA",
-  // "<exact Course Type record name>": "BIZ_ADV_DIPLOMA",
-  // "<exact Course Type record name>": "BIZ_POSTGRAD",
-  // "<exact Course Type record name>": "TOURISM_HOSPITALITY",
-  // "<exact Course Type record name>": "AI_DIPLOMA",
-  // "<exact Course Type record name>": "AI_ADV_DIPLOMA"
-  // ASK: the exact list of Course Type (or Program) record names in your system,
-  // one per row above, so each can be mapped to the right MER_RULES key.
+  // "<course_type string to standardise on>": "PREP_AEIS",
+  // "<course_type string to standardise on>": "PREP_OLEVEL",
+  // "<course_type string to standardise on>": "PREP_ALEVEL",
+  // "<course_type string to standardise on>": "ENGLISH_L1",
+  // "<course_type string to standardise on>": "ENGLISH_L2",
+  // "<course_type string to standardise on>": "ENGLISH_L3",
+  // "<course_type string to standardise on>": "ENGLISH_IELTS_PREP",
+  // "<course_type string to standardise on>": "GENERAL_MANAGEMENT",
+  // "<course_type string to standardise on>": "BIZ_DIPLOMA",
+  // "<course_type string to standardise on>": "BIZ_ADV_DIPLOMA",
+  // "<course_type string to standardise on>": "BIZ_POSTGRAD",
+  // "<course_type string to standardise on>": "TOURISM_HOSPITALITY",
+  // "<course_type string to standardise on>": "AI_DIPLOMA",
+  // "<course_type string to standardise on>": "AI_ADV_DIPLOMA"
+  // ASK: the exact course_type strings you want to standardise on, one per row
+  // above — a fixed controlled vocabulary here keeps both the AI extraction
+  // prompt and the rules lookup reliable.
 };
 
 // =============================================================================
@@ -284,14 +293,16 @@ const COURSE_TYPE_KEY_MAP = {
 // A. Per course in MER_RULES (14 entries): minimumAge, requiredAcademicLevel
 //    (a tier key), requiredEnglishBand (a band key), workExperienceAlternativeYears
 //    (or "not applicable"), alternativeCourse.
-// B. ACADEMIC_EQUIVALENCY.qualificationToTier: the real qualification-name strings
-//    used in your Educational Background child table, each mapped to a tier.
+// B. ACADEMIC_EQUIVALENCY.qualificationToTier: the qualification-name strings likely
+//    to appear in `highest_qualification` (AI-extracted or staff-typed), each
+//    mapped to a tier.
 // C. ENGLISH_EQUIVALENCY: every cell in all 6 rows x 7 columns (or tell me to use
 //    the general IELTS/TOEFL/PTE/Duolingo industry concordance figures I already
 //    have as a starting point for those four columns specifically, still flagged
 //    as unconfirmed against UCC's own published table).
-// D. COURSE_TYPE_KEY_MAP: the exact Course Type (or Program) record names in your
-//    system, one per MER_RULES key.
+// D. COURSE_TYPE_KEY_MAP: the exact course_type strings you want to standardise on
+//    (a controlled vocabulary used both to steer the AI extraction prompt in
+//    extraction_schema.md and to key the rules lookup), one per MER_RULES key.
 // E. Two open policy questions flagged inline above: (1) how L2/L3 English
 //    Certificate progression checks prior-level completion, if at all; (2) whether
 //    Advanced Diploma / Postgrad require the specific UCC lower qualification or
