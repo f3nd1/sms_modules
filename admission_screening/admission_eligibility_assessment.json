@@ -1,0 +1,248 @@
+{
+  "doctype": "DocType",
+  "name": "Admission Eligibility Assessment",
+  "module": "Educ Sg",
+  "custom": 1,
+  "is_submittable": 0,
+  "istable": 0,
+  "editable_grid": 1,
+  "track_changes": 1,
+  "allow_rename": 0,
+  "autoname": "AEA-.YYYY.-.#####",
+  "naming_rule": "Expression (old style)",
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "title_field": "student_applicant",
+  "search_fields": "student_applicant,recommendation",
+  "fields": [
+    {
+      "fieldname": "section_break_applicant",
+      "fieldtype": "Section Break",
+      "label": "Applicant"
+    },
+    {
+      "fieldname": "student_applicant",
+      "fieldtype": "Link",
+      "label": "Student Applicant",
+      "options": "Student Applicant",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "description": "Select the applicant to assess. All fields below are fetched or derived from this record."
+    },
+    {
+      "fieldname": "applicant_name",
+      "fieldtype": "Data",
+      "label": "Applicant Name",
+      "fetch_from": "student_applicant.first_name",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_applicant_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "program",
+      "fieldtype": "Link",
+      "label": "Program",
+      "options": "Program",
+      "fetch_from": "student_applicant.program",
+      "read_only": 1
+    },
+    {
+      "fieldname": "course_type",
+      "fieldtype": "Link",
+      "label": "Course Type",
+      "options": "Course Type",
+      "fetch_from": "student_applicant.custom_course_type",
+      "read_only": 1
+    },
+    {
+      "fieldname": "student_type",
+      "fieldtype": "Data",
+      "label": "Student Type",
+      "fetch_from": "student_applicant.student_type",
+      "read_only": 1
+    },
+    {
+      "fieldname": "application_status",
+      "fieldtype": "Data",
+      "label": "Application Status",
+      "fetch_from": "student_applicant.application_status",
+      "read_only": 1
+    },
+    {
+      "fieldname": "section_break_facts",
+      "fieldtype": "Section Break",
+      "label": "Facts"
+    },
+    {
+      "fieldname": "date_of_birth",
+      "fieldtype": "Date",
+      "label": "Date of Birth",
+      "fetch_from": "student_applicant.date_of_birth",
+      "read_only": 1
+    },
+    {
+      "fieldname": "age",
+      "fieldtype": "Int",
+      "label": "Age",
+      "read_only": 1,
+      "description": "Computed by the Client Script from Date of Birth when Run Assessment is clicked."
+    },
+    {
+      "fieldname": "nationality",
+      "fieldtype": "Data",
+      "label": "Nationality",
+      "fetch_from": "student_applicant.nationality",
+      "read_only": 1
+    },
+    {
+      "fieldname": "residence_status",
+      "fieldtype": "Data",
+      "label": "Residence Status",
+      "fetch_from": "student_applicant.residence_status",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_facts_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "highest_qualification",
+      "fieldtype": "Data",
+      "label": "Highest Qualification",
+      "read_only": 1,
+      "description": "Derived by the Client Script from the applicant's Educational Background child table."
+    },
+    {
+      "fieldname": "english_test",
+      "fieldtype": "Data",
+      "label": "English Test",
+      "read_only": 1,
+      "description": "Derived by the Client Script from the applicant's language test evidence/attachments."
+    },
+    {
+      "fieldname": "english_score",
+      "fieldtype": "Data",
+      "label": "English Score",
+      "read_only": 1
+    },
+    {
+      "fieldname": "work_experience_years",
+      "fieldtype": "Float",
+      "label": "Work Experience (Years)",
+      "precision": "1",
+      "read_only": 1,
+      "description": "Summed by the Client Script from the applicant's Employment History child table."
+    },
+    {
+      "fieldname": "section_break_result",
+      "fieldtype": "Section Break",
+      "label": "Result"
+    },
+    {
+      "fieldname": "recommendation",
+      "fieldtype": "Select",
+      "label": "Recommendation",
+      "options": "\nEligible\nNot Eligible\nConditional – English Placement Required\nRequires Interview\nRequires Additional Documents\nManual Review",
+      "read_only": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "bold": 1
+    },
+    {
+      "fieldname": "academic_status",
+      "fieldtype": "Select",
+      "label": "Academic Status",
+      "options": "\nPass\nFail\nReview",
+      "read_only": 1
+    },
+    {
+      "fieldname": "english_status",
+      "fieldtype": "Select",
+      "label": "English Status",
+      "options": "\nPass\nFail\nReview",
+      "read_only": 1
+    },
+    {
+      "fieldname": "age_status",
+      "fieldtype": "Select",
+      "label": "Age Status",
+      "options": "\nPass\nFail\nReview",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_result_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "proposed_alternative",
+      "fieldtype": "Data",
+      "label": "Proposed Alternative",
+      "read_only": 1,
+      "description": "Fallback/lower/foundation course suggested when the applicant does not meet MER. Plain text (e.g. an internal pathway note), not restricted to a Program record, since the alternative may not always be a formal Program."
+    },
+    {
+      "fieldname": "assessment_detail",
+      "fieldtype": "Code",
+      "label": "Assessment Detail (JSON)",
+      "options": "JSON",
+      "read_only": 1,
+      "description": "Machine-readable reasons/flags from the rules engine (and AI supporting evidence, if enabled)."
+    },
+    {
+      "fieldname": "section_break_html",
+      "fieldtype": "Section Break",
+      "label": "Eligibility Result"
+    },
+    {
+      "fieldname": "eligibility_result_html",
+      "fieldtype": "HTML",
+      "label": "Eligibility Result"
+    },
+    {
+      "fieldname": "section_break_audit",
+      "fieldtype": "Section Break",
+      "label": "Audit",
+      "collapsible": 1
+    },
+    {
+      "fieldname": "assessed_on",
+      "fieldtype": "Datetime",
+      "label": "Assessed On",
+      "read_only": 1
+    },
+    {
+      "fieldname": "assessed_by",
+      "fieldtype": "Link",
+      "label": "Assessed By",
+      "options": "User",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_audit_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "staff_override_notes",
+      "fieldtype": "Text",
+      "label": "Staff Override Notes",
+      "description": "Free-text notes for staff who manually override or annotate the automated recommendation."
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1,
+      "report": 1,
+      "export": 1,
+      "print": 1,
+      "email": 1,
+      "share": 1
+    }
+  ]
+}
