@@ -34,10 +34,26 @@ frappe.ui.form.on("Admission Eligibility Assessment", {
   },
 
   application_pdf(frm) {
+    AEA.on_doc_field_change(frm);
     if (frm.doc.application_pdf) {
       AEA.extract_from_pdf(frm);
     }
   }
+});
+
+// Keep the custom Minecraft layout in sync whenever the script or the AI writes a
+// field value: extract_from_pdf() and run_assessment() both call frm.set_value(),
+// which fires these field events. These handlers are display-only — they re-populate
+// the custom inputs / verdict card from frm.doc and add no engine logic. (The engine
+// functions themselves are untouched.)
+[
+  "applicant_name", "date_of_birth", "age", "nationality", "residence_status",
+  "program_applied", "course_type", "student_type", "highest_qualification",
+  "english_test", "english_score", "work_experience_years", "extraction_status",
+  "extracted_json", "assessment_detail", "recommendation", "proposed_alternative",
+  "assessed_on", "assessed_by", "staff_override_notes", "supporting_pdf"
+].forEach((fn) => {
+  frappe.ui.form.on("Admission Eligibility Assessment", { [fn]: (frm) => AEA.on_doc_field_change(frm) });
 });
 
 const AEA = {
@@ -1165,64 +1181,313 @@ const AEA = {
     }
   },
 
+  // ===========================================================================
+  // ---------- Minecraft custom form (VISUAL LAYER ONLY) ----------
+  // Renders the entire form inside the single `custom_form_render` HTML field and
+  // hides every native field. Hand-rolls pixel-styled inputs for plain fields and
+  // RE-PARENTS Frappe's own controls for Attach/Link fields (so upload + link
+  // search keep working with zero reimplementation). No engine logic lives here.
+  // ===========================================================================
+
+  APPLICANT_FIELDS: [
+    { fn: "applicant_name", label: "Applicant Name", type: "text" },
+    { fn: "date_of_birth", label: "Date of Birth", type: "date" },
+    { fn: "age", label: "Age", type: "ro" },
+    { fn: "nationality", label: "Nationality", type: "text" },
+    { fn: "residence_status", label: "Residence Status", type: "text" },
+    { fn: "program_applied", label: "Program Applied", type: "text" },
+    { fn: "course_type", label: "Course Type", type: "text" },
+    { fn: "student_type", label: "Student Type", type: "text" },
+    { fn: "highest_qualification", label: "Highest Qualification", type: "text" },
+    { fn: "english_test", label: "English Test", type: "text" },
+    { fn: "english_score", label: "English Score", type: "text" },
+    { fn: "work_experience_years", label: "Work Experience (Years)", type: "number" }
+  ],
+
+  REPARENT_FIELDS: ["application_pdf", "supporting_pdf", "assessed_by"],
+
+  THEME_CSS: `
+.mc-root{--grass:#5B8A2D;--grass-l:#79b23a;--grass-d:#37561a;--dirt:#79573a;--dirt-d:#4f381f;--stone:#8a8a82;--stone-d:#5a5a52;--stone-l:#b6b6ac;--panel:#c6c6be;--panel-d:#5a5a52;--panel-l:#ebebe3;--ink:#2b2b26;--paper:#dedad0;--parch:#efeadd;font-family:'Courier New',Courier,monospace;color:var(--ink);padding:4px 2px 22px;}
+.mc-root *{box-sizing:border-box;border-radius:0 !important;}
+.mc-h{font-family:'Press Start 2P','Courier New',monospace;}
+.mc-page-title{font-family:'Press Start 2P','Courier New',monospace;font-size:13px;color:var(--grass-d);margin:2px 2px 14px;line-height:1.5;}
+.mc-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px;}
+.mc-btn{font-family:'Press Start 2P','Courier New',monospace;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:#f6f4e2;background:var(--grass);border:3px solid;border-color:var(--grass-l) var(--grass-d) var(--grass-d) var(--grass-l);padding:11px 14px;cursor:pointer;box-shadow:2px 2px 0 rgba(0,0,0,.35);line-height:1.4;}
+.mc-btn:hover{filter:brightness(1.08);}
+.mc-btn:active{border-color:var(--grass-d) var(--grass-l) var(--grass-l) var(--grass-d);transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(0,0,0,.35);}
+.mc-btn--stone{background:var(--stone);border-color:var(--stone-l) var(--stone-d) var(--stone-d) var(--stone-l);}
+.mc-btn--stone:active{border-color:var(--stone-d) var(--stone-l) var(--stone-l) var(--stone-d);}
+.mc-panel{background:var(--panel);border:4px solid;border-color:var(--panel-l) var(--panel-d) var(--panel-d) var(--panel-l);padding:0;margin:0 0 14px;box-shadow:3px 3px 0 rgba(0,0,0,.25);}
+.mc-sec-title{font-family:'Press Start 2P','Courier New',monospace;font-size:11px;color:#f6f4e2;background:var(--dirt);border-bottom:3px solid var(--dirt-d);padding:11px 12px;text-transform:uppercase;letter-spacing:.5px;}
+.mc-sec-body{padding:14px 14px 6px;}
+.mc-note{font-size:12px;color:#5a4a36;background:var(--parch);border:2px solid #c9bd9c;padding:9px 11px;margin:0 0 13px;line-height:1.5;}
+.mc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 16px;margin-bottom:8px;}
+.mc-field{display:flex;flex-direction:column;gap:5px;}
+.mc-label{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;color:#4a4a42;text-transform:uppercase;letter-spacing:.4px;line-height:1.5;}
+.mc-input,.mc-textarea{font-family:'Courier New',Courier,monospace;font-size:13px;color:var(--ink);background:var(--paper);border:3px solid;border-color:#3a3a34 #ebebe3 #ebebe3 #3a3a34;padding:7px 8px;width:100%;outline:none;}
+.mc-input:focus,.mc-textarea:focus{background:#fffef4;border-color:var(--grass-d) var(--grass-l) var(--grass-l) var(--grass-d);}
+.mc-textarea{min-height:72px;resize:vertical;}
+.mc-chip{font-family:'Courier New',Courier,monospace;font-size:13px;color:var(--ink);background:var(--panel-l);border:3px solid;border-color:#3a3a34 #ebebe3 #ebebe3 #3a3a34;padding:7px 8px;min-height:34px;}
+.mc-ctl{background:var(--paper);border:3px solid;border-color:#3a3a34 #ebebe3 #ebebe3 #3a3a34;padding:8px;}
+.mc-ctl .control-label,.mc-ctl .help-box,.mc-ctl .comment-box{display:none !important;}
+.mc-ctl .frappe-control{margin:0 !important;}
+.mc-ctl .form-group{margin-bottom:0 !important;}
+.mc-verdict{background:var(--panel);border:4px solid;border-color:var(--panel-l) var(--panel-d) var(--panel-d) var(--panel-l);box-shadow:4px 4px 0 rgba(0,0,0,.3);padding:16px;margin:0 0 16px;}
+.mc-badge{display:inline-block;font-family:'Press Start 2P','Courier New',monospace;font-size:12px;color:#f6f4e2;padding:11px 15px;border:3px solid rgba(0,0,0,.35);margin-bottom:14px;text-transform:uppercase;box-shadow:2px 2px 0 rgba(0,0,0,.3);line-height:1.5;}
+.mc-crit-row{display:flex;gap:10px;flex-wrap:wrap;}
+.mc-crit{flex:1;min-width:180px;background:var(--paper);border:3px solid;border-color:#ebebe3 #5a5a52 #5a5a52 #ebebe3;padding:11px;}
+.mc-crit-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;letter-spacing:.4px;text-transform:uppercase;line-height:1.5;}
+.mc-crit-s{font-family:'Press Start 2P','Courier New',monospace;font-size:14px;margin:7px 0;line-height:1.4;}
+.mc-crit-r{font-size:12px;color:#44443c;line-height:1.45;}
+.mc-crit--pass .mc-crit-h,.mc-crit--pass .mc-crit-s{color:#37561a;}
+.mc-crit--fail .mc-crit-h,.mc-crit--fail .mc-crit-s{color:#9e2b25;}
+.mc-crit--review .mc-crit-h,.mc-crit--review .mc-crit-s{color:#946a17;}
+.mc-flags{margin:14px 0 0;padding-left:20px;font-size:12.5px;color:#4a4a42;line-height:1.6;}
+.mc-alt{margin-top:14px;background:var(--parch);border:3px solid #c9bd9c;padding:10px 12px;}
+.mc-alt-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;text-transform:uppercase;color:#6b5a3a;line-height:1.5;}
+.mc-alt-v{font-size:14px;color:#4a3a22;margin-top:5px;}
+.mc-verdict-empty{font-family:'Courier New',Courier,monospace;font-size:13px;color:#5a5a52;padding:6px 2px;line-height:1.5;}
+.mc-raw{display:none;margin-top:12px;}
+.mc-json-h{font-family:'Press Start 2P','Courier New',monospace;font-size:8.5px;text-transform:uppercase;color:#4a4a42;margin-top:10px;line-height:1.5;}
+.mc-json{font-family:'Courier New',Courier,monospace;font-size:11.5px;color:#d8f0c0;background:#2b2b26;border:3px solid;border-color:#000 #4a4a42 #4a4a42 #000;padding:10px;max-height:280px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 12px;}
+`,
+
+  inject_theme() {
+    if (document.getElementById("aea-mc-theme")) return;
+    if (!document.getElementById("aea-mc-font")) {
+      const link = document.createElement("link");
+      link.id = "aea-mc-font";
+      link.rel = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap";
+      document.head.appendChild(link);
+    }
+    const style = document.createElement("style");
+    style.id = "aea-mc-theme";
+    style.textContent = this.THEME_CSS;
+    document.head.appendChild(style);
+  },
+
+  _field_row(f) {
+    const L = `<label class="mc-label">${frappe.utils.escape_html(f.label)}</label>`;
+    if (f.type === "ro") return `<div class="mc-field">${L}<div class="mc-chip" data-aea-chip="${f.fn}"></div></div>`;
+    if (f.type === "date") return `<div class="mc-field">${L}<input class="mc-input" type="date" data-aea-field="${f.fn}"></div>`;
+    if (f.type === "number") return `<div class="mc-field">${L}<input class="mc-input" type="number" step="0.1" data-aea-field="${f.fn}" data-aea-type="number"></div>`;
+    return `<div class="mc-field">${L}<input class="mc-input" type="text" data-aea-field="${f.fn}"></div>`;
+  },
+
+  build_shell_html() {
+    const applicant = this.APPLICANT_FIELDS.map((f) => this._field_row(f)).join("");
+    return `
+      <div class="mc-root">
+        <div class="mc-page-title">&#9935; Admission Eligibility Assessment</div>
+        <div class="mc-toolbar">
+          <button type="button" class="mc-btn" data-aea-action="run">Run Assessment</button>
+          <button type="button" class="mc-btn mc-btn--stone" data-aea-action="ai">AI Settings</button>
+          <button type="button" class="mc-btn mc-btn--stone" data-aea-action="reextract">Re-extract from PDF</button>
+        </div>
+        <div class="mc-verdict" id="aea-verdict"></div>
+        <div class="mc-panel">
+          <div class="mc-sec-title">Source Document</div>
+          <div class="mc-sec-body"><div class="mc-grid">
+            <div class="mc-field"><label class="mc-label">Extraction Status</label><div class="mc-chip" data-aea-chip="extraction_status"></div></div>
+            <div class="mc-field"><label class="mc-label">Application PDF</label><div class="mc-ctl" id="aea-ctl-application_pdf"></div></div>
+            <div class="mc-field"><label class="mc-label">Supporting Document (optional)</label><div class="mc-ctl" id="aea-ctl-supporting_pdf"></div></div>
+          </div></div>
+        </div>
+        <div class="mc-panel">
+          <div class="mc-sec-title">Applicant Details</div>
+          <div class="mc-sec-body">
+            <div class="mc-note">Fields below are filled by <b>Extract from PDF</b> and are fully editable. Review and correct every value before pressing <b>Run Assessment</b> — nothing is assessed on unverified AI output.</div>
+            <div class="mc-grid">${applicant}</div>
+          </div>
+        </div>
+        <div class="mc-panel">
+          <div class="mc-sec-title">Audit</div>
+          <div class="mc-sec-body"><div class="mc-grid">
+            <div class="mc-field"><label class="mc-label">Assessed On</label><div class="mc-chip" data-aea-chip="assessed_on"></div></div>
+            <div class="mc-field"><label class="mc-label">Assessed By</label><div class="mc-ctl" id="aea-ctl-assessed_by"></div></div>
+            <div class="mc-field" style="grid-column:1/-1"><label class="mc-label">Staff Override Notes</label><textarea class="mc-textarea" data-aea-field="staff_override_notes"></textarea></div>
+          </div></div>
+        </div>
+        <button type="button" class="mc-btn mc-btn--stone mc-raw-toggle">Show raw data</button>
+        <div class="mc-raw">
+          <div class="mc-json-h">extracted_json — raw AI output</div>
+          <pre class="mc-json" data-aea-json="extracted_json"></pre>
+          <div class="mc-json-h">assessment_detail — rules engine output</div>
+          <pre class="mc-json" data-aea-json="assessment_detail"></pre>
+        </div>
+      </div>`;
+  },
+
+  render_form(frm) {
+    this.inject_theme();
+    const field = frm.get_field("custom_form_render");
+    if (!field) {
+      if (!frm.__aea_no_render_warned) {
+        frm.__aea_no_render_warned = true;
+        frappe.msgprint({
+          title: "Custom form field missing",
+          message: "This form expects an HTML field named <b>custom_form_render</b> (Label \"Form\") as its first field — see DOCTYPE_SETUP.md. The native field layout is shown until it is added.",
+          indicator: "orange"
+        });
+      }
+      return; // fall back to native layout, do not break the form
+    }
+    // Re-render the shell each refresh (Frappe owns HTML-field content via df.options),
+    // then re-attach the native controls and re-sync — this survives Frappe's own refreshes.
+    field.df.options = this.build_shell_html();
+    frm.refresh_field("custom_form_render");
+    this.reparent_controls(frm);
+    this.wire_inputs(frm);
+    this.hide_native_fields(frm);
+    this.sync_from_doc(frm);
+    this.render_verdict_from_doc(frm);
+  },
+
+  hide_native_fields(frm) {
+    // Hide every native field EXCEPT custom_form_render and the three we re-parent
+    // (skipping those keeps df.hidden=0 so Frappe never re-hides the moved controls).
+    const skip = { custom_form_render: 1, application_pdf: 1, supporting_pdf: 1, assessed_by: 1 };
+    (frm.meta.fields || []).forEach((df) => {
+      if (skip[df.fieldname]) return;
+      if (!df.hidden) frm.set_df_property(df.fieldname, "hidden", 1);
+    });
+  },
+
+  reparent_controls(frm) {
+    const wrap = frm.get_field("custom_form_render").$wrapper;
+    this.REPARENT_FIELDS.forEach((fn) => {
+      const f = frm.fields_dict[fn];
+      const host = wrap.find("#aea-ctl-" + fn);
+      if (f && f.$wrapper && host.length) {
+        host.append(f.$wrapper);
+        f.$wrapper.removeClass("hidden").css("display", "");
+      }
+    });
+  },
+
+  wire_inputs(frm) {
+    const wrap = frm.get_field("custom_form_render").$wrapper;
+    wrap.find("[data-aea-field]").each(function () {
+      const el = this;
+      const fn = el.getAttribute("data-aea-field");
+      $(el).on("change blur", () => {
+        let v = el.value;
+        if (el.getAttribute("data-aea-type") === "number") v = v === "" ? null : parseFloat(v);
+        if (frm.doc[fn] !== v) frm.set_value(fn, v);
+      });
+    });
+    wrap.find(".mc-raw-toggle").on("click", function () {
+      const raw = wrap.find(".mc-raw");
+      const shown = raw.is(":visible");
+      raw.toggle(!shown);
+      $(this).text(shown ? "Show raw data" : "Hide raw data");
+    });
+    wrap.find('[data-aea-action="run"]').on("click", () => AEA.run_assessment(frm));
+    wrap.find('[data-aea-action="ai"]').on("click", () => AEA.open_ai_settings(frm));
+    wrap.find('[data-aea-action="reextract"]').on("click", () => AEA.extract_from_pdf(frm));
+  },
+
+  sync_from_doc(frm) {
+    const wrap = frm.get_field("custom_form_render").$wrapper;
+    wrap.find("[data-aea-field]").each(function () {
+      const fn = this.getAttribute("data-aea-field");
+      const v = frm.doc[fn];
+      this.value = (v === null || v === undefined) ? "" : v; // programmatic; no change event
+    });
+    const chip = (fn, fallback) => {
+      const el = wrap.find('[data-aea-chip="' + fn + '"]');
+      if (!el.length) return;
+      const v = frm.doc[fn];
+      el.text((v === null || v === undefined || v === "") ? (fallback || "—") : v);
+    };
+    chip("extraction_status", "Not Extracted");
+    chip("age", "—");
+    chip("assessed_on", "—");
+    wrap.find('[data-aea-json="extracted_json"]').text(frm.doc.extracted_json || "(none)");
+    wrap.find('[data-aea-json="assessment_detail"]').text(frm.doc.assessment_detail || "(none)");
+    wrap.find('[data-aea-action="reextract"]').toggle(!!frm.doc.application_pdf);
+  },
+
+  render_verdict_from_doc(frm) {
+    const host = frm.get_field("custom_form_render").$wrapper.find("#aea-verdict");
+    if (!host.length) return;
+    if (frm.doc.assessment_detail) {
+      let detail = null;
+      try { detail = JSON.parse(frm.doc.assessment_detail); } catch (e) { detail = null; }
+      if (detail && detail.criteria) { this.build_result_html(frm, detail); return; }
+    }
+    host.html('<div class="mc-verdict-empty">No assessment yet — upload a PDF, review the Applicant Details, then press RUN ASSESSMENT.</div>');
+  },
+
+  on_doc_field_change(frm) {
+    // Fired by the field-level form.on handlers when the script/AI writes a value.
+    // Only acts once the custom shell exists; pure display re-sync, no engine logic.
+    const f = frm.get_field ? frm.get_field("custom_form_render") : null;
+    if (!f || !f.$wrapper || !f.$wrapper.find(".mc-root").length) return;
+    this.sync_from_doc(frm);
+    this.render_verdict_from_doc(frm);
+  },
+
   // ---------- HTML render ----------
   build_result_html(frm, detail) {
+    // DATA LOGIC UNCHANGED — reads rec, detail.criteria.{academic,english,age},
+    // detail.flags, and proposed_alternative exactly as before. Only the markup
+    // (Minecraft theme) and the injection target (top verdict card) changed.
     const rec = frm.doc.recommendation || "Manual Review";
-    const badgeColor = {
-      "Eligible": "#2e7d32", "Not Eligible": "#c62828",
-      "Conditional – English Placement Required": "#ef6c00",
-      "Requires Interview": "#1a3b6e", "Requires Additional Documents": "#8a6d00",
-      "Manual Review": "#666"
-    }[rec] || "#666";
+    const badgeBg = {
+      "Eligible": "#5B8A2D", "Not Eligible": "#9e2b25",
+      "Conditional – English Placement Required": "#b5701f",
+      "Requires Interview": "#3a5a86", "Requires Additional Documents": "#8a6d1f",
+      "Manual Review": "#6e6e66"
+    }[rec] || "#6e6e66";
 
     const criterionCard = (label, c) => {
       if (!c) return "";
-      const color = c.status === "Pass" ? "#2e7d32" : c.status === "Fail" ? "#c62828" : "#8a6d00";
-      const bg = c.status === "Pass" ? "#e8f5e9" : c.status === "Fail" ? "#fdecea" : "#fff8e1";
+      const mod = c.status === "Pass" ? "pass" : c.status === "Fail" ? "fail" : "review";
       return `
-        <div style="flex:1;min-width:200px;border:1px solid ${color}33;background:${bg};border-radius:8px;padding:10px 12px;">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:${color};letter-spacing:.04em;">${label}</div>
-          <div style="font-size:18px;font-weight:750;color:${color};margin:2px 0 6px;">${frappe.utils.escape_html(c.status)}</div>
-          <div style="font-size:12px;color:#444;line-height:1.4;">${frappe.utils.escape_html(c.requirement || "")}</div>
+        <div class="mc-crit mc-crit--${mod}">
+          <div class="mc-crit-h">${label}</div>
+          <div class="mc-crit-s">${frappe.utils.escape_html(c.status)}</div>
+          <div class="mc-crit-r">${frappe.utils.escape_html(c.requirement || "")}</div>
         </div>`;
     };
 
     const flagsHtml = (detail.flags || []).length
-      ? `<ul style="margin:10px 0 0;padding-left:18px;font-size:12.5px;color:#555;line-height:1.6;">${detail.flags.map((f) => `<li>${frappe.utils.escape_html(f)}</li>`).join("")}</ul>`
+      ? `<ul class="mc-flags">${detail.flags.map((f) => `<li>${frappe.utils.escape_html(f)}</li>`).join("")}</ul>`
       : "";
 
     const altHtml = frm.doc.proposed_alternative
-      ? `<div style="margin-top:12px;padding:10px 12px;border:1px solid #8295bd55;background:#eef2fb;border-radius:8px;">
-           <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#33406a;letter-spacing:.04em;">Proposed Alternative</div>
-           <div style="font-size:14px;color:#1a3b6e;margin-top:2px;">${frappe.utils.escape_html(frm.doc.proposed_alternative)}</div>
-         </div>`
+      ? `<div class="mc-alt"><div class="mc-alt-h">Proposed Alternative</div><div class="mc-alt-v">${frappe.utils.escape_html(frm.doc.proposed_alternative)}</div></div>`
       : "";
 
     const html = `
-      <div style="font-family:inherit;border:1px solid #e0e0e0;border-radius:10px;padding:16px;background:#fff;">
-        <div style="display:inline-block;padding:5px 14px;border-radius:999px;background:${badgeColor};color:#fff;font-weight:700;font-size:14px;margin-bottom:12px;">
-          ${frappe.utils.escape_html(rec)}
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          ${criterionCard("Academic", detail.criteria && detail.criteria.academic)}
-          ${criterionCard("English", detail.criteria && detail.criteria.english)}
-          ${criterionCard("Age", detail.criteria && detail.criteria.age)}
-        </div>
-        ${flagsHtml}
-        ${altHtml}
-      </div>`;
+      <div class="mc-badge" style="background:${badgeBg}">${frappe.utils.escape_html(rec)}</div>
+      <div class="mc-crit-row">
+        ${criterionCard("Academic", detail.criteria && detail.criteria.academic)}
+        ${criterionCard("English", detail.criteria && detail.criteria.english)}
+        ${criterionCard("Age", detail.criteria && detail.criteria.age)}
+      </div>
+      ${flagsHtml}
+      ${altHtml}`;
 
-    frm.set_df_property("eligibility_result_html", "options", html);
-    frm.refresh_field("eligibility_result_html");
+    const field = frm.get_field && frm.get_field("custom_form_render");
+    const host = field && field.$wrapper ? field.$wrapper.find("#aea-verdict") : null;
+    if (host && host.length) {
+      host.html(html); // promoted verdict card at the top of the custom layout
+    } else {
+      // Fallback: custom layout not present — render into the native HTML field.
+      frm.set_df_property("eligibility_result_html", "options",
+        `<div class="mc-root"><div class="mc-verdict">${html}</div></div>`);
+      frm.refresh_field("eligibility_result_html");
+    }
   },
 
-  // ---------- buttons ----------
+  // ---------- entry point ----------
   bind(frm) {
-    frm.page.clear_primary_action();
-    frm.add_custom_button("Run Assessment", () => AEA.run_assessment(frm)).addClass("btn-primary");
-    frm.add_custom_button("AI Settings", () => AEA.open_ai_settings(frm));
-    if (frm.doc.application_pdf) {
-      frm.add_custom_button("Re-extract from PDF", () => AEA.extract_from_pdf(frm));
-    }
+    // The toolbar actions (Run Assessment / AI Settings / Re-extract) are rendered
+    // as Minecraft buttons inside the custom layout by render_form(), wired to the
+    // same AEA.* functions — no native page buttons are added.
+    this.render_form(frm);
   }
 };

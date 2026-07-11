@@ -16,6 +16,11 @@
   "search_fields": "applicant_name,recommendation",
   "fields": [
     {
+      "fieldname": "custom_form_render",
+      "fieldtype": "HTML",
+      "label": "Form"
+    },
+    {
       "fieldname": "section_break_source",
       "fieldtype": "Section Break",
       "label": "Source Document"

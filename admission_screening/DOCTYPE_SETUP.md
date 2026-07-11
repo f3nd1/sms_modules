@@ -33,6 +33,28 @@ section, and Audit).
 For every row: set **Label**, **Type**, then only the extra columns noted. Leave anything
 not mentioned at its default.
 
+### Field 0 — the custom render field (ADD THIS FIRST)
+
+The Client Script draws the entire Minecraft-styled form inside one HTML field and hides
+every other field. This field **must exist and must be the very first field** in the list.
+
+| # | Label | Type | Options | Notes |
+|---|-------|------|---------|-------|
+| 0 | `Form` | HTML | | fieldname **`custom_form_render`**; must be the **first** field, above Source Document |
+
+> ⚠️ **DO NOT LEAVE THE LABEL BLANK.** This project has hit the same bug three times: a
+> field added with an empty **Label** makes Frappe auto-generate a garbage fieldname (e.g.
+> `select_jfql` / `html_abcd`) and drop its settings. Type the Label **`Form`** *first*,
+> confirm the **fieldname** column reads exactly **`custom_form_render`** (edit it by hand
+> if Frappe generated anything else), set Type to **HTML**, and drag it to the **top** of
+> the field list before saving. If the fieldname is wrong, the script falls back to the
+> plain native layout and shows an orange "Custom form field missing" message.
+
+After this field exists, add the rest below. They stay in the DocType (the script reads and
+writes them) but are **hidden at runtime** — you will not see them on the form; you'll see
+the custom layout instead. Their order/section grouping below still matters for List View,
+Print Format, and the (rare) fallback native layout.
+
 ### Section: Source Document
 
 | # | Label | Type | Options | Reqd | Read Only | Notes |
