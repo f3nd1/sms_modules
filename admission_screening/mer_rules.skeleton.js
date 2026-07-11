@@ -179,8 +179,23 @@ const ACADEMIC_EQUIVALENCY = {
 // -----------------------------------------------------------------------------
 // 3. ENGLISH_EQUIVALENCY — one row per proficiency band, seven columns as named
 //    in the task spec. `requiredEnglishBand` above should reference a row's `key`.
-//    Every numeric value is a placeholder. Ranges should be given as [min, max]
-//    (inclusive) or a single accepted grade/string for IGCSE / GCE O-Level.
+//    Ranges are [min, max] inclusive, or a single accepted grade/string for
+//    IGCSE / GCE O-Level.
+//
+//    SOURCED: ielts / pte / toeflIbt / duolingo below are filled in from
+//    published general concordance data (ETS/TOEFL, Pearson/PTE, Cambridge,
+//    Duolingo's own official comparison tables, cross-referenced across
+//    multiple sources on 2026-07-11) — NOT from UCC's own reference guide
+//    (which returns HTTP 403 to automated fetches — see mer_rules.skeleton.js
+//    history / prior chat). These are industry-standard equivalencies, not
+//    UCC-confirmed ones — verify against UCC's actual policy before relying on
+//    them, especially at the Diploma/Degree entry thresholds (BAND_UPPER_
+//    INTERMEDIATE / BAND_ADVANCED). Note ETS introduced a new TOEFL 1-6 scale
+//    in Jan 2026; the 0-120 iBT figures below are the classic scale the task
+//    spec asked for and remain valid for historical/converted scores.
+//
+//    STILL PLACEHOLDER (no general public standard exists for these — must
+//    come from you): uccPlacementTest, igcse, oLevel on every row.
 // -----------------------------------------------------------------------------
 
 // === EDIT THRESHOLDS HERE ===
@@ -189,10 +204,10 @@ const ENGLISH_EQUIVALENCY = [
     key: "BAND_NONE",
     label: "No English requirement / UCC Placement Test pathway",
     uccPlacementTest: null,   // ASK: e.g. [0, 39]  (scale is 0-100 per the reference guide)
-    ielts: null,              // ASK: e.g. [0, 4.0] (scale is 1-9)
-    pte: null,                // ASK: (scale is 10-90)
-    toeflIbt: null,           // ASK: (scale is 0-120)
-    duolingo: null,           // ASK: (scale is 10-160)
+    ielts: [0, 3.0],
+    pte: [10, 19],
+    toeflIbt: [0, 9],
+    duolingo: [10, 40],
     igcse: null,              // ASK: grade string, or "not applicable"
     oLevel: null              // ASK: grade string, or "not applicable"
   },
@@ -200,10 +215,10 @@ const ENGLISH_EQUIVALENCY = [
     key: "BAND_ELEMENTARY",
     label: "Elementary (e.g. English Certificate L1 entry)",
     uccPlacementTest: null,
-    ielts: null,
-    pte: null,
-    toeflIbt: null,
-    duolingo: null,
+    ielts: [3.5, 4.0],
+    pte: [20, 29],
+    toeflIbt: [9, 31],
+    duolingo: [40, 55],
     igcse: null,
     oLevel: null
   },
@@ -211,10 +226,10 @@ const ENGLISH_EQUIVALENCY = [
     key: "BAND_PRE_INTERMEDIATE",
     label: "Pre-Intermediate (e.g. L2 entry)",
     uccPlacementTest: null,
-    ielts: null,
-    pte: null,
-    toeflIbt: null,
-    duolingo: null,
+    ielts: [4.5, 5.0],
+    pte: [30, 38],
+    toeflIbt: [38, 55],
+    duolingo: [60, 75],
     igcse: null,
     oLevel: null
   },
@@ -222,10 +237,10 @@ const ENGLISH_EQUIVALENCY = [
     key: "BAND_INTERMEDIATE",
     label: "Intermediate (e.g. L3 entry / IELTS Prep entry)",
     uccPlacementTest: null,
-    ielts: null,
-    pte: null,
-    toeflIbt: null,
-    duolingo: null,
+    ielts: [5.5, 6.0],
+    pte: [42, 50],
+    toeflIbt: [62, 78],
+    duolingo: [80, 95],
     igcse: null,
     oLevel: null
   },
@@ -233,10 +248,18 @@ const ENGLISH_EQUIVALENCY = [
     key: "BAND_UPPER_INTERMEDIATE",
     label: "Upper-Intermediate (typical Diploma-level entry)",
     uccPlacementTest: null,
-    ielts: null,              // ASK: is this the "IELTS 5.5 or equivalent" band mentioned publicly for diploma entry?
-    pte: null,
-    toeflIbt: null,
-    duolingo: null,
+    // ASK/VERIFY: a general web search (not the blocked reference guide, and not
+    // independently confirmed) surfaced a description of UCC's own admission
+    // requirements mentioning "IELTS 5.5 (or equivalent)" for entry. That falls
+    // in BAND_INTERMEDIATE above, one band below where this row (6.5-7.0) is
+    // placed as a generic "typical diploma entry" default. Please confirm which
+    // band (or an exact score) actually applies to Diploma-level courses — I
+    // have deliberately NOT moved this row's numbers based on an unconfirmed
+    // search snippet.
+    ielts: [6.5, 7.0],
+    pte: [58, 64],
+    toeflIbt: [79, 93],
+    duolingo: [110, 119],
     igcse: null,
     oLevel: null
   },
@@ -244,10 +267,10 @@ const ENGLISH_EQUIVALENCY = [
     key: "BAND_ADVANCED",
     label: "Advanced (typical Degree/Postgrad-level entry)",
     uccPlacementTest: null,
-    ielts: null,
-    pte: null,
-    toeflIbt: null,
-    duolingo: null,
+    ielts: [7.5, 9.0],
+    pte: [65, 90],
+    toeflIbt: [94, 120],
+    duolingo: [120, 160],
     igcse: null,
     oLevel: null
   }
@@ -290,23 +313,31 @@ const COURSE_TYPE_KEY_MAP = {
 // =============================================================================
 // ✅ CHECKLIST — what's needed to move to checkpoint 2 (the full engine)
 // =============================================================================
+// RESOLVED this round (do not re-ask):
+//  - ENGLISH_EQUIVALENCY.ielts/pte/toeflIbt/duolingo: seeded from general
+//    published concordance data across all 6 bands (see the sourcing note
+//    above section 3). Still flagged unconfirmed against UCC's own table.
+//  - English Certificate L1->L2->L3 progression: band-based only, no prior-
+//    level completion check (v1 policy decision).
+//  - Advanced Diploma / Postgraduate progression: checks the
+//    ACADEMIC_EQUIVALENCY tier only (e.g. TIER_DIPLOMA), not "must be UCC's
+//    own prior course" (v1 policy decision).
+//
+// STILL OUTSTANDING — needed before the Client Script can be written:
 // A. Per course in MER_RULES (14 entries): minimumAge, requiredAcademicLevel
 //    (a tier key), requiredEnglishBand (a band key), workExperienceAlternativeYears
 //    (or "not applicable"), alternativeCourse.
 // B. ACADEMIC_EQUIVALENCY.qualificationToTier: the qualification-name strings likely
 //    to appear in `highest_qualification` (AI-extracted or staff-typed), each
 //    mapped to a tier.
-// C. ENGLISH_EQUIVALENCY: every cell in all 6 rows x 7 columns (or tell me to use
-//    the general IELTS/TOEFL/PTE/Duolingo industry concordance figures I already
-//    have as a starting point for those four columns specifically, still flagged
-//    as unconfirmed against UCC's own published table).
+// C. ENGLISH_EQUIVALENCY: uccPlacementTest, igcse, and oLevel on all 6 rows —
+//    no general public standard exists for these, so they must come from you.
+//    (ielts/pte/toeflIbt/duolingo are now filled — see RESOLVED above. Also
+//    please confirm/correct the BAND_UPPER_INTERMEDIATE row — see the
+//    ASK/VERIFY comment on that row re: a possible "IELTS 5.5" signal.)
 // D. COURSE_TYPE_KEY_MAP: the exact course_type strings you want to standardise on
 //    (a controlled vocabulary used both to steer the AI extraction prompt in
 //    extraction_schema.md and to key the rules lookup), one per MER_RULES key.
-// E. Two open policy questions flagged inline above: (1) how L2/L3 English
-//    Certificate progression checks prior-level completion, if at all; (2) whether
-//    Advanced Diploma / Postgrad require the specific UCC lower qualification or
-//    any equivalent.
 //
 // You can answer inline in chat, or edit this file directly and hand it back —
 // either way, once filled in this file becomes the rules object inside the
