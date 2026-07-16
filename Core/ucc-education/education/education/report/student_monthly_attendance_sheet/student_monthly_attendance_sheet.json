@@ -1,0 +1,43 @@
+{
+ "add_total_row": 0,
+ "add_translate_data": 0,
+ "columns": [],
+ "creation": "2013-05-13 14:04:03",
+ "disabled": 1,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "idx": 213,
+ "is_standard": "Yes",
+ "letterhead": null,
+ "modified": "2026-07-09 10:44:53.293972",
+ "modified_by": "Administrator",
+ "module": "Education",
+ "name": "Student Monthly Attendance Sheet",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "Student Attendance",
+ "report_name": "Student Monthly Attendance Sheet",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "Admissions Manager"
+  },
+  {
+   "role": "Head of Department - Academic of Learning Innovation"
+  },
+  {
+   "role": "Head of Department - Student Success and Outreach"
+  },
+  {
+   "role": "Student Support Manager"
+  },
+  {
+   "role": "Principal"
+  },
+  {
+   "role": "Head of Department - Academic of Learning Innovation"
+  }
+ ],
+ "timeout": 0
+}

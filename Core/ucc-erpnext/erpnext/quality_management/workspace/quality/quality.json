@@ -1,0 +1,533 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"kq5R-XefvN\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h1\\\">Quality Module</span>\",\"col\":12}},{\"id\":\"P_oE2HYGmO\",\"type\":\"paragraph\",\"data\":{\"text\":\"The Quality Module in ERPNext is an essential tool for managing and enhancing organizational quality standards. Operating at an&nbsp;<b>operational level</b>, it provides comprehensive functionalities for setting <b>quality goals, overseeing procedures, and ensuring regulatory compliance</b>. This module is crucial for operational managers and quality assurance teams focused on maintaining consistent quality control, facilitating detailed inspections, and generating actionable feedback and reports.  For more information please visit: <a href=\\\"https://shorturl.at/BIRUW\\\">Quality Module - Wiki</a>\",\"col\":12}},{\"id\":\"JvGFt3mZyP\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Horizontal Rule\",\"col\":12}},{\"id\":\"8b_EDMkafS\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\",\"col\":12}},{\"id\":\"aToJJ-oneU\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quality Dashboard\",\"col\":3}},{\"id\":\"WgGLzLiYJJ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quality Goal\",\"col\":3}},{\"id\":\"fNXo8P_Kyr\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quality Action\",\"col\":3}},{\"id\":\"cGJufyM2DL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quality Procedure\",\"col\":3}},{\"id\":\"bZOJcWb2B1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quality Inspection\",\"col\":3}},{\"id\":\"b0l2P5S1KN\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quality Meeting\",\"col\":3}},{\"id\":\"Y-OZfI-zJl\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Compliance Tracking\",\"col\":3}},{\"id\":\"uQfIEyAYO1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quality Review\",\"col\":3}},{\"id\":\"ttrZowfWPc\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Horizontal Rule\",\"col\":12}},{\"id\":\"QeYYZNsC4B\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"3-N2c0Ji49\",\"type\":\"card\",\"data\":{\"card_name\":\"Management System\",\"col\":4}},{\"id\":\"TcfPmeGYXK\",\"type\":\"card\",\"data\":{\"card_name\":\"Strategic Quality Planning\",\"col\":4}},{\"id\":\"4p_O2Ezt5x\",\"type\":\"card\",\"data\":{\"card_name\":\"Performance Monitoring & Outcomes\",\"col\":4}},{\"id\":\"akn-dcOKOG\",\"type\":\"card\",\"data\":{\"card_name\":\"Procedure\",\"col\":4}},{\"id\":\"C9YZR8aaZK\",\"type\":\"card\",\"data\":{\"card_name\":\"Review and Action\",\"col\":4}},{\"id\":\"BhEWodKeMS\",\"type\":\"card\",\"data\":{\"card_name\":\"Meeting\",\"col\":4}},{\"id\":\"58-mlSOgBw\",\"type\":\"card\",\"data\":{\"card_name\":\"Feedback\",\"col\":4}},{\"id\":\"MlSFzGp32-\",\"type\":\"card\",\"data\":{\"card_name\":\"Contracts\",\"col\":4}}]",
+ "creation": "2020-03-02 15:49:28.632014",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Horizontal Rule",
+   "label": "Horizontal Rule"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "quality",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Quality",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Meeting",
+   "link_count": 3,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Meeting",
+   "link_count": 0,
+   "link_to": "Quality Meeting",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Meeting Template",
+   "link_count": 0,
+   "link_to": "Quality Meeting Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Review and Action",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Review",
+   "link_count": 0,
+   "link_to": "Quality Review",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Action",
+   "link_count": 0,
+   "link_to": "Quality Action",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Feedback",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Feedback",
+   "link_count": 0,
+   "link_to": "Quality Feedback",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Feedback Template",
+   "link_count": 0,
+   "link_to": "Quality Feedback Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Management System",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Manual",
+   "link_count": 0,
+   "link_to": "Quality Manual",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Document Control",
+   "link_count": 0,
+   "link_to": "Document Control",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Procedure",
+   "link_count": 7,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Procedure",
+   "link_count": 0,
+   "link_to": "Quality Procedure",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Procedure Review Log",
+   "link_count": 0,
+   "link_to": "Quality Procedure Review Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tree of Procedures",
+   "link_count": 0,
+   "link_to": "Quality Procedure",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Appendices",
+   "link_count": 0,
+   "link_to": "Appendices",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Appendices Date",
+   "link_count": 0,
+   "link_to": "Appendices Timing",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Definitions",
+   "link_count": 0,
+   "link_to": "Definitions",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Responsibilities",
+   "link_count": 0,
+   "link_to": "Responsibilities",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Performance Monitoring & Outcomes",
+   "link_count": 4,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Performance Outcomes",
+   "link_count": 0,
+   "link_to": "Quality Performance Outcomes",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Performance Outcomes Category",
+   "link_count": 0,
+   "link_to": "Quality Performance Outcomes Category",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Parameters Normalisation",
+   "link_count": 0,
+   "link_to": "Parameters Normalisation",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Quality Performance Outcomes - Survey Mapping",
+   "link_count": 0,
+   "link_to": "Quality Performance Outcomes - Survey Mapping",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Contracts",
+   "link_count": 9,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Self Declaration Form",
+   "link_count": 0,
+   "link_to": "Self Declaration Form",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Contract Management",
+   "link_count": 0,
+   "link_to": "Contract Management",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Contract Signature",
+   "link_count": 0,
+   "link_to": "Contract Signature",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Student Admission UCC",
+   "link_count": 0,
+   "link_to": "Student Admission UCC",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Agent Contract",
+   "link_count": 0,
+   "link_to": "Agent Contract",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Non Disclosure Agreement",
+   "link_count": 0,
+   "link_to": "Non Disclosure Agreement",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Service Provider Contract for Service",
+   "link_count": 0,
+   "link_to": "Service Provider Contract for Service",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Partnership Agreement",
+   "link_count": 0,
+   "link_to": "Partnership Agreement",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Teacher Contract for Service",
+   "link_count": 0,
+   "link_to": "Teacher Contract for Service",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Strategic Quality Planning",
+   "link_count": 7,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Strategic Performance Framework",
+   "link_count": 0,
+   "link_to": "Strategic Performance Framework",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Strategic Quality Goals Framework",
+   "link_count": 0,
+   "link_to": "Strategic Quality Goals Framework",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Goal",
+   "link_count": 0,
+   "link_to": "Quality Goal",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Goal - Business Direction",
+   "link_count": 0,
+   "link_to": "Quality Goal Business Direction",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Department and Staff Goals",
+   "link_count": 0,
+   "link_to": "Appraisal Goals",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Balanced scorecard",
+   "link_count": 0,
+   "link_to": "Balanced scorecard",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "BSC Perspective",
+   "link_count": 0,
+   "link_to": "BSC Perspective",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2025-09-06 11:41:18.076033",
+ "modified_by": "felix@unitedceres.edu.sg",
+ "module": "Quality Management",
+ "name": "Quality",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [
+  {
+   "role": "Administrator"
+  },
+  {
+   "role": "Quality Manager"
+  },
+  {
+   "role": "Auditor"
+  }
+ ],
+ "sequence_id": 11.0,
+ "shortcuts": [
+  {
+   "color": "Cyan",
+   "doc_view": "Tree",
+   "format": "{} Open",
+   "label": "Quality Procedure",
+   "link_to": "Quality Procedure",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "format": "{} Open",
+   "label": "Quality Goal",
+   "link_to": "Quality Goal",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Quality Dashboard",
+   "link_to": "Quality",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "format": "",
+   "label": "Quality Meeting",
+   "link_to": "Quality Meeting",
+   "stats_filter": "",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "format": "{} Open",
+   "label": "Quality Action",
+   "link_to": "Quality Action",
+   "stats_filter": "[[\"Quality Action\",\"status\",\"=\",\"Open\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Red",
+   "doc_view": "",
+   "format": "{} Open",
+   "label": "Compliance Tracking",
+   "link_to": "Non Conformance",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "label": "Quality Inspection",
+   "link_to": "Quality Inspection",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "format": "{} Open",
+   "label": "Quality Review",
+   "link_to": "Quality Review",
+   "stats_filter": "{\"status\": \"Open\"}",
+   "type": "DocType"
+  }
+ ],
+ "title": "Quality"
+}

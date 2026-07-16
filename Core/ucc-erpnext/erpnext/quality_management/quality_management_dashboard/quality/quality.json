@@ -1,0 +1,33 @@
+{
+ "cards": [
+  {
+   "card": "Compliance Tracking"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Continuous Improvement",
+   "width": "Half"
+  },
+  {
+   "chart": "Quality Review",
+   "width": "Half"
+  },
+  {
+   "chart": "Quality Action",
+   "width": "Half"
+  }
+ ],
+ "creation": "2024-04-18 06:20:04.201786",
+ "dashboard_name": "Quality",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "idx": 127,
+ "is_default": 0,
+ "is_standard": 1,
+ "modified": "2024-05-12 17:29:49.799322",
+ "modified_by": "Administrator",
+ "module": "Quality Management",
+ "name": "Quality",
+ "owner": "Administrator"
+}
