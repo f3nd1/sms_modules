@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(**/*.dump)",
+      "Read(**/*.key)",
+      "Read(**/*.keystore)",
+      "Read(**/*.p12)",
+      "Read(**/*.pem)",
+      "Read(**/*.pfx)",
+      "Read(**/*.sql.gz)",
+      "Read(**/*.sqlite)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/.git-credentials)",
+      "Read(**/.npmrc)",
+      "Read(**/.pypirc)",
+      "Read(**/BrowserProfile/**)",
+      "Read(**/browser/**/Cookies)",
+      "Read(**/credentials/**)",
+      "Read(**/id_ed25519)",
+      "Read(**/id_rsa)",
+      "Read(**/secrets/**)"
+    ]
+  }
+}

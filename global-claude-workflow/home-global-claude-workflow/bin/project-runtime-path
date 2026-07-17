@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# project-runtime-path — resolve (and create) the isolated runtime dir for a project.
+# Usage: project-runtime-path [project-path]
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$HOME/.global-claude-workflow"
+id="$("$HERE/detect-project" "${1:-$PWD}" | sed -E 's/.*"identity":"([^"]+)".*/\1/')"
+[ -z "$id" ] && { echo "cannot resolve identity" >&2; exit 2; }
+d="$ROOT/projects/$id"
+mkdir -p "$d"/{profile,cache,tasks,receipts,graph,browser,memory-routing,manifest,logs}
+chmod 700 "$d" 2>/dev/null || true
+echo "$d"
