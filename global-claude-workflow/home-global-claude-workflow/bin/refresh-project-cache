@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# refresh-project-cache — build/refresh a project cache index with freshness metadata.
+# Bounded: only indexes the project root, records revision + checksum. Stores no file bodies.
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+target="${1:-$PWD}"
+info="$("$HERE/detect-project" "$target")"
+id="$(printf '%s' "$info" | sed -E 's/.*"identity":"([^"]+)".*/\1/')"
+root="$(printf '%s' "$info" | sed -E 's/.*"root":"([^"]+)".*/\1/')"
+rtdir="$("$HERE/project-runtime-path" "$target")"
+cache="$rtdir/cache"
+mkdir -p "$cache"
+
+rev="$(cd "$root" && git rev-parse HEAD 2>/dev/null || echo "NOGIT")"
+# a cheap freshness signal that works without git too
+sig="$(cd "$root" && { git rev-parse HEAD 2>/dev/null || find . -maxdepth 2 -type f -newer "$root" 2>/dev/null | head -50; ls -la; } | sha256sum | cut -c1-16)"
+ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# top-level dir/source index (paths + metadata only, no bodies)
+( cd "$root" && ls -1 2>/dev/null ) > "$cache/tree.txt" || true
+
+cat > "$cache/INDEX.json" <<EOF
+{
+  "project_identity": "$id",
+  "root": "$root",
+  "source_revision": "$rev",
+  "freshness_checksum": "$sig",
+  "included_scope": "project-root",
+  "generated_at": "$ts",
+  "refresh_command": "$HERE/refresh-project-cache '$root'"
+}
+EOF
+chmod 600 "$cache/INDEX.json" 2>/dev/null || true
+echo "$cache/INDEX.json"

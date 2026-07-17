@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# detect-project — deterministic project identity + basic VC state.
+# Prints JSON. Never modifies the project. Never prints remote credentials.
+set -euo pipefail
+
+start="${1:-$PWD}"
+cd "$start" 2>/dev/null || { echo '{"error":"path not found"}'; exit 2; }
+
+canon() { (cd "$1" 2>/dev/null && pwd -P); }
+
+# Redact any user:pass@ or token in a git remote URL, drop trailing .git,
+# lowercase host. Never emit credentials.
+normalize_remote() {
+  local url="$1"
+  # strip credentials in scheme://user:pass@host
+  url="$(printf '%s' "$url" | sed -E 's#(://)[^/@]*@#\1#')"
+  # scp-style git@host:path -> host/path (drop user)
+  url="$(printf '%s' "$url" | sed -E 's#^[^@/]+@([^:]+):#\1/#')"
+  url="${url%.git}"
+  printf '%s' "$url" | tr 'A-Z' 'a-z'
+}
+
+sha() { printf '%s' "$1" | sha256sum | cut -c1-16; }
+
+is_git=false
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then is_git=true; fi
+
+if $is_git; then
+  root="$(git rev-parse --show-toplevel)"
+  common_dir="$(cd "$root" && git rev-parse --git-common-dir)"
+  git_dir="$(cd "$root" && git rev-parse --git-dir)"
+  worktree="main"
+  [ "$(canon "$git_dir")" != "$(canon "$common_dir")" ] && worktree="$(basename "$root")"
+  branch="$(git symbolic-ref --short -q HEAD 2>/dev/null | tr -d '\n' || true)"; [ -z "$branch" ] && branch="UNKNOWN"
+  head="$(git rev-parse --verify -q HEAD 2>/dev/null | tr -d '\n' || true)"; [ -z "$head" ] && head="UNKNOWN"
+  # literal configured URL (not rewritten by any insteadOf/proxy config)
+  remote_raw="$(git config --get remote.origin.url 2>/dev/null || echo '')"
+  dirty=false
+  [ -n "$(git status --porcelain 2>/dev/null)" ] && dirty=true
+  if [ -n "$remote_raw" ]; then
+    nremote="$(normalize_remote "$remote_raw")"
+    provider="other-git"
+    case "$nremote" in
+      *github.com*) provider="github" ;;
+      *gitlab*)     provider="gitlab" ;;
+      *bitbucket*)  provider="bitbucket" ;;
+    esac
+    identity_seed="$nremote"
+  else
+    nremote="NONE"; provider="none"
+    identity_seed="$(canon "$common_dir")"
+  fi
+  # identity keyed on shared repo (common dir), so worktrees share knowledge
+  hash="$(sha "$identity_seed")"
+  identity="$(basename "$root")-$hash"
+  printf '{"is_git":true,"identity":"%s","root":"%s","provider":"%s","remote":"%s","branch":"%s","head":"%s","dirty":%s,"worktree":"%s"}\n' \
+    "$identity" "$(canon "$root")" "$provider" "$nremote" "$branch" "$head" "$dirty" "$worktree"
+else
+  root="$(canon "$start")"
+  hash="$(sha "$root")"
+  identity="$(basename "$root")-$hash"
+  printf '{"is_git":false,"identity":"%s","root":"%s","provider":"none","remote":"NONE","branch":"UNKNOWN","head":"UNKNOWN","dirty":false,"worktree":"main"}\n' \
+    "$identity" "$root"
+fi

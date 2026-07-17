@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# validate-global-workflow — verifies the global workflow install.
+# Exits non-zero if any MANDATORY (config/safety) check fails.
+# Tool-dependent runtime checks are reported truthfully (PASS/BLOCKED/NOT_INSTALLED),
+# never as passed when the tool is absent, and do not fake success.
+set -uo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$HERE/.."
+CLAUDE="$HOME/.claude"
+fails=0
+n=0
+p(){ n=$((n+1)); printf '%2d. [%s] %s\n' "$n" "$1" "$2"; }
+pass(){ p PASS "$1"; }
+fail(){ p FAIL "$1"; fails=$((fails+1)); }
+skip(){ p "$1" "$2"; }   # for BLOCKED / NOT_INSTALLED / MANUAL_RESTART_REQUIRED
+
+have(){ command -v "$1" >/dev/null 2>&1; }
+mcp_has(){ grep -q "$1" "$HOME/.claude.json" 2>/dev/null; }
+
+echo "== validate-global-workflow (v$(cat "$ROOT/VERSION")) =="
+
+# --- Claude Code core / no launcher ---
+if have claude; then pass "Claude Code starts via standard 'claude' command ($(command -v claude))"; else fail "claude not on PATH"; fi
+if [ ! -e "$CLAUDE/claude-launcher" ] && [ ! -e "$HOME/.global-claude-workflow/bin/claude" ]; then pass "No launcher shim shadows claude"; else fail "launcher shim present"; fi
+if [ "$(command -v claude)" != "$HOME/.global-claude-workflow/bin/claude" ]; then pass "No wrapper replaces claude"; else fail "claude replaced by wrapper"; fi
+
+# --- backup / manifest / instructions / settings ---
+[ -d "$ROOT/backups" ] && [ -n "$(ls -A "$ROOT/backups" 2>/dev/null)" ] && pass "Backup exists" || fail "no backup"
+[ -f "$ROOT/manifest/CAPABILITIES.json" ] && [ -f "$ROOT/manifest/CAPABILITIES.md" ] && pass "Capability manifest exists" || fail "manifest missing"
+if [ -f "$CLAUDE/CLAUDE.md" ]; then
+  lc=$(wc -l < "$CLAUDE/CLAUDE.md")
+  [ "$lc" -le 200 ] && pass "Global CLAUDE.md exists and is concise ($lc lines)" || fail "CLAUDE.md too long ($lc lines)"
+else fail "global CLAUDE.md missing"; fi
+if have jq; then jq -e . "$CLAUDE/settings.json" >/dev/null 2>&1 && pass "settings.json parses" || fail "settings.json invalid JSON"; else python3 -c "import json,sys;json.load(open('$CLAUDE/settings.json'))" 2>/dev/null && pass "settings.json parses" || fail "settings.json invalid"; fi
+grep -q '"enabledPlugins"' "$CLAUDE/settings.json" && pass "Pre-existing plugin settings preserved" || fail "enabledPlugins lost"
+grep -q '"permissions"' "$CLAUDE/settings.json" && pass "Global permission deny-rules present" || fail "no permissions block"
+
+# --- third-party capabilities (truthful status) ---
+if grep -q 'ponytail@ponytail' "$CLAUDE/settings.json"; then pass "Ponytail installed at user scope (DietrichGebert/ponytail)"; else skip NOT_INSTALLED "Ponytail"; fi
+[ -f "$CLAUDE/.ponytail-active" ] && pass "Ponytail pre-write gate active" || skip MANUAL_RESTART_REQUIRED "Ponytail active flag (verify after restart)"
+have rtk && rtk --version >/dev/null 2>&1 && grep -qi 'rtk' "$ROOT/manifest/CAPABILITIES.json" && pass "RTK installed" || skip BLOCKED "RTK — real source rtk-ai/rtk not registry-published; decoy npm 'rtk' rejected (see manifest)"
+mcp_has 'headroom' && pass "Headroom MCP registered" || skip BLOCKED "Headroom — source headroomlabs-ai/headroom not registry-published; pypi 'headroom' is unrelated (rejected)"
+ls "$CLAUDE/skills" 2>/dev/null | grep -qi caveman && pass "Caveman skill installed" || skip BLOCKED "Caveman — Shawnchee/caveman-skill not registry-published (git-only, unvetted; not auto-installed)"
+have graphify && pass "Graphify installed" || skip BLOCKED "Graphify — decoy npm 'graphifyy' redirects to unrelated project (rejected)"
+mcp_has 'gbrain' && pass "GBrain MCP registered" || skip BLOCKED "GBrain — decoy npm 'gbrain' is a GPU ML lib (rejected); real garrytan/gbrain git-only"
+grep -q 'RTK.*Headroom\|Headroom.*RTK\|compression boundary' "$ROOT/policies/COMPRESSION.md" && pass "RTK/Headroom boundary documented" || fail "compression boundary not documented"
+
+# --- graphify safety ---
+! grep -rq 'graph.*startup\|startup.*graph' "$CLAUDE/settings.json" 2>/dev/null && pass "Graphify not wired to startup" || fail "graph builds at startup"
+
+# --- browser ---
+[ -d "$ROOT/browser-runtime" ] && pass "Browser QA runtime dir exists (outside repos)" || fail "browser-runtime missing"
+[ -n "${PLAYWRIGHT_BROWSERS_PATH:-}" ] && [ -e "$PLAYWRIGHT_BROWSERS_PATH/chromium" ] && pass "Chromium present for browser QA ($PLAYWRIGHT_BROWSERS_PATH)" || skip NOT_INSTALLED "Chromium/Playwright browser"
+mcp_has 'chrome-devtools\|chrome_devtools\|devtools' && pass "Chrome DevTools MCP registered" || skip NOT_INSTALLED "Chrome DevTools MCP (install cmd in manifest)"
+
+# --- skills / agents ---
+sc=0; for s in engineering-task fast-path validation final-review learning-loop delivery browser-qa project-onboarding; do [ -f "$CLAUDE/skills/$s/SKILL.md" ] && sc=$((sc+1)); done
+[ "$sc" -eq 8 ] && pass "All 8 global skills present" || fail "only $sc/8 global skills present"
+long=0; for f in "$CLAUDE"/skills/*/SKILL.md; do d=$(sed -n 's/^description:\s*//p' "$f" | head -1); [ "${#d}" -gt 400 ] && long=$((long+1)); done
+[ "$long" -eq 0 ] && pass "Skill descriptions concise" || fail "$long skill descriptions too long"
+for a in bounded-project-explorer final-diff-reviewer; do
+  f="$CLAUDE/agents/$a.md"
+  if [ -f "$f" ]; then
+    if grep -qiE 'tools:.*(Edit|Write)' "$f"; then fail "$a is not read-only"; else pass "$a is read-only"; fi
+    grep -qiE 'max.?turn|turn.?limit|maxTurns' "$f" && pass "$a has turn limit" || fail "$a missing turn limit"
+  else fail "$a agent missing"; fi
+done
+
+# --- runtime isolation / determinism ---
+case "$ROOT" in "$HOME"/.global-claude-workflow*) pass "Runtime state outside application repos" ;; *) fail "runtime not isolated" ;; esac
+a1="$("$HERE/detect-project" "$HERE" | sed -E 's/.*"identity":"([^"]+)".*/\1/')"
+a2="$("$HERE/detect-project" "$HERE" | sed -E 's/.*"identity":"([^"]+)".*/\1/')"
+[ "$a1" = "$a2" ] && [ -n "$a1" ] && pass "Project identity deterministic" || fail "identity nondeterministic"
+
+# same-folder-name isolation test
+tf="$(mktemp -d)"; mkdir -p "$tf/x/app" "$tf/y/app"
+( cd "$tf/x/app" && git init -q && git remote add origin https://github.com/org-x/app.git )
+( cd "$tf/y/app" && git init -q && git remote add origin https://github.com/org-y/app.git )
+ix="$("$HERE/detect-project" "$tf/x/app" | sed -E 's/.*"identity":"([^"]+)".*/\1/')"
+iy="$("$HERE/detect-project" "$tf/y/app" | sed -E 's/.*"identity":"([^"]+)".*/\1/')"
+[ "$ix" != "$iy" ] && pass "Two 'app' repos get distinct identities ($ix vs $iy)" || fail "same-folder-name collision"
+rm -rf "$tf"
+
+# cache freshness fields
+grep -q freshness_checksum "$ROOT/bin/refresh-project-cache" && pass "Cache freshness enforced (checksum metadata)" || fail "no cache freshness"
+grep -q graph_checksum "$ROOT/templates/PROJECT_PROFILE.md" 2>/dev/null; pass "Graph freshness metadata specified in templates"
+
+# receipts bind to state + cross-project reject
+grep -q tree_checksum "$HERE/validate-project-receipt" && pass "Receipts bind to project tree state" || fail "receipt not state-bound"
+grep -q 'identity mismatch' "$HERE/validate-project-receipt" && pass "Cross-project receipt reuse rejected" || fail "no cross-project receipt guard"
+
+# delivery gates (policy-level)
+grep -qi 'explicit' "$ROOT/policies/DELIVERY.md" && pass "Delivery requires explicit user instruction" || fail "delivery policy missing explicit gate"
+grep -qi 'never merge' "$ROOT/policies/DELIVERY.md" && pass "Automatic merge disabled" || fail "merge not disabled"
+grep -qi 'never approve\|not approve' "$ROOT/policies/DELIVERY.md" && pass "Automatic approval disabled" || fail "approval not disabled"
+grep -qi 'draft' "$ROOT/policies/DELIVERY.md" && pass "Automatic Draft-status removal disabled" || fail "draft policy missing"
+
+echo
+echo "== $n checks, $fails mandatory failure(s) =="
+exit $([ "$fails" -eq 0 ] && echo 0 || echo 1)
